@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Server Connection Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .test-section {
+      margin-bottom: 30px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    .result {
+      margin-top: 15px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+      min-height: 50px;
+      max-height: 200px;
+      overflow: auto;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+  </style>
+</head>
+<body>
+  <h1>MealWise Family Server Connection Test</h1>
+  <p>This tool helps diagnose connection issues with the server.</p>
+  
+  <!-- Server Status Test -->
+  <div class="test-section">
+    <h2>1. Server Status Check</h2>
+    <p>Tests if the server is running and accessible.</p>
+    
+    <div class="form-group">
+      <label for="server-url">Server URL:</label>
+      <input type="text" id="server-url" value="http://localhost:9090">
+    </div>
+    
+    <button onclick="checkServerStatus()">Check Server Status</button>
+    
+    <div id="server-status-result" class="result">
+      <p>Results will appear here...</p>
+    </div>
+  </div>
+  
+  <!-- CORS Test -->
+  <div class="test-section">
+    <h2>2. CORS Configuration Test</h2>
+    <p>Tests if CORS is properly configured on the server.</p>
+    
+    <div class="form-group">
+      <label for="cors-url">API Endpoint:</label>
+      <input type="text" id="cors-url" value="http://localhost:9090/api/auth/login">
+    </div>
+    
+    <button onclick="testCORS('OPTIONS')">Test CORS Preflight</button>
+    <button onclick="testCORS('GET')">Test GET</button>
+    <button onclick="testCORS('POST')">Test POST</button>
+    
+    <div id="cors-result" class="result">
+      <p>Results will appear here...</p>
+    </div>
+  </div>
+  
+  <!-- Login Test -->
+  <div class="test-section">
+    <h2>3. Login API Test</h2>
+    <p>Tests the login API endpoint with credentials.</p>
+    
+    <div class="form-group">
+      <label for="login-url">Login URL:</label>
+      <input type="text" id="login-url" value="http://localhost:9090/api/auth/login">
+    </div>
+    
+    <div class="form-group">
+      <label for="login-email">Email:</label>
+      <input type="email" id="login-email" value="admin@example.com">
+    </div>
+    
+    <div class="form-group">
+      <label for="login-password">Password:</label>
+      <input type="password" id="login-password" value="admin123">
+    </div>
+    
+    <button onclick="testLogin()">Test Login</button>
+    
+    <div id="login-result" class="result">
+      <p>Results will appear here...</p>
+    </div>
+  </div>
+  
+  <!-- Network Information -->
+  <div class="test-section">
+    <h2>4. Network Information</h2>
+    <div id="network-info">
+      <p>Loading network information...</p>
+    </div>
+  </div>
+  
+  <script>
+    // Check if server is running
+    async function checkServerStatus() {
+      const serverUrl = document.getElementById('server-url').value;
+      const resultDiv = document.getElementById('server-status-result');
+      
+      resultDiv.innerHTML = '<p>Checking server status...</p>';
+      
+      try {
+        const startTime = performance.now();
+        const response = await fetch(serverUrl, {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'no-cache',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        const endTime = performance.now();
+        const responseTime = Math.round(endTime - startTime);
+        
+        if (response.ok) {
+          resultDiv.innerHTML = `
+            <p class="success">✅ Server is running!</p>
+            <p>Response time: ${responseTime}ms</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <p>Headers:</p>
+            <pre>${formatHeaders(response.headers)}</pre>
+          `;
+        } else {
+          resultDiv.innerHTML = `
+            <p class="error">⚠️ Server returned an error response.</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <p>Response time: ${responseTime}ms</p>
+            <p>Headers:</p>
+            <pre>${formatHeaders(response.headers)}</pre>
+          `;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <p class="error">❌ Failed to connect to server!</p>
+          <p>Error: ${error.message}</p>
+          <p>This usually means:</p>
+          <ul>
+            <li>The server is not running</li>
+            <li>The URL is incorrect</li>
+            <li>There's a network issue</li>
+            <li>CORS is blocking the request</li>
+          </ul>
+        `;
+      }
+    }
+    
+    // Test CORS configuration
+    async function testCORS(method) {
+      const corsUrl = document.getElementById('cors-url').value;
+      const resultDiv = document.getElementById('cors-result');
+      
+      resultDiv.innerHTML = `<p>Testing CORS with ${method} request...</p>`;
+      
+      try {
+        const response = await fetch(corsUrl, {
+          method: method,
+          mode: 'cors',
+          cache: 'no-cache',
+          headers: {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json'
+          },
+          body: method === 'POST' ? JSON.stringify({}) : undefined
+        });
+        
+        resultDiv.innerHTML = `
+          <p class="success">✅ CORS is properly configured for ${method} requests!</p>
+          <p>Status: ${response.status} ${response.statusText}</p>
+          <p>Headers:</p>
+          <pre>${formatHeaders(response.headers)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <p class="error">❌ CORS test failed for ${method} request!</p>
+          <p>Error: ${error.message}</p>
+          <p>This usually means:</p>
+          <ul>
+            <li>CORS is not properly configured on the server</li>
+            <li>The server is not running</li>
+            <li>The endpoint doesn't support ${method} requests</li>
+          </ul>
+        `;
+      }
+    }
+    
+    // Test login API
+    async function testLogin() {
+      const loginUrl = document.getElementById('login-url').value;
+      const email = document.getElementById('login-email').value;
+      const password = document.getElementById('login-password').value;
+      const resultDiv = document.getElementById('login-result');
+      
+      resultDiv.innerHTML = '<p>Testing login API...</p>';
+      
+      try {
+        const response = await fetch(loginUrl, {
+          method: 'POST',
+          mode: 'cors',
+          cache: 'no-cache',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            email,
+            password
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok && data.success) {
+          resultDiv.innerHTML = `
+            <p class="success">✅ Login successful!</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <p>Response:</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        } else {
+          resultDiv.innerHTML = `
+            <p class="error">⚠️ Login failed!</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <p>Response:</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <p class="error">❌ Login request failed!</p>
+          <p>Error: ${error.message}</p>
+          <p>This could be due to:</p>
+          <ul>
+            <li>Server not running</li>
+            <li>CORS issues</li>
+            <li>Network problems</li>
+            <li>Invalid endpoint</li>
+          </ul>
+        `;
+      }
+    }
+    
+    // Format headers for display
+    function formatHeaders(headers) {
+      let result = '';
+      for (const [key, value] of headers.entries()) {
+        result += `${key}: ${value}\n`;
+      }
+      return result;
+    }
+    
+    // Display network information
+    function displayNetworkInfo() {
+      const infoDiv = document.getElementById('network-info');
+      
+      const info = {
+        online: navigator.onLine,
+        userAgent: navigator.userAgent,
+        cookiesEnabled: navigator.cookieEnabled,
+        language: navigator.language,
+        doNotTrack: navigator.doNotTrack,
+        connectionType: 'Unknown'
+      };
+      
+      // Get connection type if available
+      if (navigator.connection) {
+        info.connectionType = navigator.connection.effectiveType || 'Unknown';
+        info.downlink = navigator.connection.downlink;
+        info.rtt = navigator.connection.rtt;
+      }
+      
+      infoDiv.innerHTML = `
+        <p><strong>Online Status:</strong> ${info.online ? 'Online ✅' : 'Offline ❌'}</p>
+        <p><strong>User Agent:</strong> ${info.userAgent}</p>
+        <p><strong>Cookies Enabled:</strong> ${info.cookiesEnabled ? 'Yes ✅' : 'No ❌'}</p>
+        <p><strong>Language:</strong> ${info.language}</p>
+        <p><strong>Do Not Track:</strong> ${info.doNotTrack || 'Not set'}</p>
+        <p><strong>Connection Type:</strong> ${info.connectionType}</p>
+        ${info.downlink ? `<p><strong>Downlink:</strong> ${info.downlink} Mbps</p>` : ''}
+        ${info.rtt ? `<p><strong>Round Trip Time:</strong> ${info.rtt} ms</p>` : ''}
+      `;
+    }
+    
+    // Initialize
+    window.onload = function() {
+      displayNetworkInfo();
+    };
+  </script>
+</body>
+</html>

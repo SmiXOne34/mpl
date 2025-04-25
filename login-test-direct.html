@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Direct Login Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 600px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+    }
+  </style>
+</head>
+<body>
+  <h1>Direct Login Test</h1>
+  <p>This page tests direct login to the server without going through the React app.</p>
+  
+  <div class="form-group">
+    <label for="server-url">Server URL:</label>
+    <input type="text" id="server-url" value="http://localhost:9090">
+  </div>
+  
+  <div class="form-group">
+    <label for="email">Email:</label>
+    <input type="email" id="email" value="admin@example.com">
+  </div>
+  
+  <div class="form-group">
+    <label for="password">Password:</label>
+    <input type="password" id="password" value="admin123">
+  </div>
+  
+  <button onclick="testLogin()">Test Login</button>
+  
+  <div id="result" class="result">
+    <p>Results will appear here...</p>
+  </div>
+  
+  <script>
+    async function testLogin() {
+      const serverUrl = document.getElementById('server-url').value;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const resultDiv = document.getElementById('result');
+      
+      resultDiv.innerHTML = '<p>Testing login...</p>';
+      
+      try {
+        const response = await fetch(`${serverUrl}/api/auth/login`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({ email, password })
+        });
+        
+        const data = await response.json();
+        
+        if (response.ok) {
+          resultDiv.innerHTML = `
+            <p style="color: green; font-weight: bold;">Login successful!</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        } else {
+          resultDiv.innerHTML = `
+            <p style="color: red; font-weight: bold;">Login failed!</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <pre>${JSON.stringify(data, null, 2)}</pre>
+          `;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <p style="color: red; font-weight: bold;">Error!</p>
+          <p>${error.message}</p>
+          <p>This could be due to:</p>
+          <ul>
+            <li>The server is not running</li>
+            <li>CORS is blocking the request</li>
+            <li>Network connectivity issues</li>
+          </ul>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

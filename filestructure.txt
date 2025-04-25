@@ -1,0 +1,246 @@
+|-- .env
+|-- .gitignore
+|-- .zencoder
+    |-- .gitignore
+    |-- Zencoder-02027189-1159-47f2-b554-7a775ba71842.out
+    |-- Zencoder-139c1a0a-f01d-4466-841c-0828cfa7a8a6.out
+    |-- Zencoder-141b15f8-ff28-4ef9-a36e-0c99cdc9afc7.out
+    |-- Zencoder-1b827e3a-d97a-4212-b406-85c7d955071c.out
+    |-- Zencoder-1c209d9b-c297-4421-bd4c-654944ac19ba.out
+    |-- Zencoder-1d27bd59-4315-49da-89cd-df828899c693.out
+    |-- Zencoder-29599cc2-ea9f-46ef-a186-62810095f3c9.out
+    |-- Zencoder-3149bff7-d4e5-49d5-9278-7f50f715ea14.out
+    |-- Zencoder-315dade1-9b18-4e6d-b58c-13b744ca3e11.out
+    |-- Zencoder-32c69ccd-1564-4216-81c7-38ee9e53567c.out
+    |-- Zencoder-3cded2ef-edb7-4833-b9d6-87baa046a075.out
+    |-- Zencoder-4967f5e9-98d0-43c8-87be-ad6d3d2ade53.out
+    |-- Zencoder-5e68eaf6-2d50-460e-82ff-f88e6a76acbd.out
+    |-- Zencoder-6c23b265-afe2-489a-a636-419b3f972d96.out
+    |-- Zencoder-6cc930cd-ae24-4af6-a35e-1dff8bb3bebe.out
+    |-- Zencoder-6e3e1ea4-8481-4a80-9d31-5cb3f580960b.out
+    |-- Zencoder-8a84855a-f00f-44c2-81db-cd1ddb784f27.out
+    |-- Zencoder-929a956b-4f2d-434a-b2c6-a8ad2feca79c.out
+    |-- Zencoder-9392b378-65fa-4c80-bed5-fe36f7f26373.out
+    |-- Zencoder-9f7484ad-2135-4d1f-a11d-d1eeea000403.out
+    |-- Zencoder-abb59381-e166-43c2-8888-39c1b4ca3e40.out
+    |-- Zencoder-b3bfe7c9-49f7-4c3a-953b-f53bec509ea3.out
+    |-- Zencoder-b773d1f0-4f3c-4480-a000-38e31acce8e6.out
+    |-- Zencoder-b7b65b33-1649-4b18-906b-a01a7870463e.out
+    |-- Zencoder-c4bb4dfe-2123-4383-bb4c-45abffa04d09.out
+    |-- Zencoder-c79b3cf8-5cc0-4840-aced-182eab62df02.out
+    |-- Zencoder-d53d4adc-0cae-48b6-9bfe-8fa38ecbe486.out
+    |-- Zencoder-da2d6660-e6fa-4781-a8b6-cb538fdcb317.out
+    |-- Zencoder-e0fc25d2-9105-4426-81df-78a111123de9.out
+    |-- Zencoder-e448faad-5ac9-4b87-9d35-63d5bf691dfd.out
+    |-- Zencoder-fc86e5df-a069-46b6-a4cc-1e57cbca09b5.out
+    |-- Zencoder-fd85ff9a-96be-4acd-9250-5ab3bc8ab8f7.out
+    |-- Zencoder-ff2f7880-7155-4a49-94a7-b630dcc2047a.out
+|-- AdminMealManagement.jsx
+|-- FamilyDashboard.jsx
+|-- Meal.js
+|-- MealSelection.jsx
+|-- MealWise_Family_Project_Plan.md
+|-- MealWise_Technical_Architecture.md
+|-- README.md
+|-- Selection.js
+|-- User.js
+|-- UserManagement.jsx
+|-- WeeklyMenu.js
+|-- __tests__
+    |-- integration
+        |-- auth.routes.test.js
+        |-- selection.routes.test.js
+    |-- setup.js
+    |-- unit
+        |-- auth.middleware.test.js
+        |-- error.middleware.test.js
+        |-- selection.model.test.js
+        |-- timeRestriction.middleware.test.js
+        |-- timeRestriction.util.test.js
+        |-- user.model.test.js
+|-- authController.js
+|-- client
+    |-- package-lock.json
+    |-- package.json
+    |-- public
+        |-- favicon.ico
+        |-- index.html
+        |-- logo192.png
+        |-- logo512.png
+        |-- manifest.json
+        |-- notification.mp3
+        |-- robots.txt
+    |-- src
+        |-- App.js
+        |-- actions
+            |-- alertActions.js
+            |-- authActions.js
+            |-- mealActions.js
+            |-- menuActions.js
+            |-- notificationActions.js
+            |-- selectionActions.js
+            |-- timeActions.js
+            |-- types.js
+            |-- userActions.js
+        |-- components
+            |-- admin
+                |-- AdminDashboard.js
+                |-- MealForm.js
+                |-- MenuForm.js
+                |-- NotificationBroadcast.js
+                |-- Settings.js
+                |-- UserManagement.js
+            |-- auth
+                |-- ForgotPassword.js
+                |-- Login.js
+                |-- Login.jsx
+                |-- Register.js
+                |-- Register.jsx
+                |-- ResetPassword.js
+            |-- dashboard
+                |-- Dashboard.js
+                |-- NotificationWidget.js
+                |-- VotingStatusWidget.js
+                |-- WeeklyReminderWidget.js
+            |-- layout
+                |-- Alert.js
+                |-- AlertContainer.js
+                |-- Footer.js
+                |-- Landing.js
+                |-- Layout.js
+                |-- Layout.jsx
+                |-- Navbar.js
+                |-- NotFound.js
+                |-- NotFound.jsx
+                |-- NotificationBadge.js
+            |-- meals
+                |-- MealDetail.js
+                |-- MealDetails.js
+                |-- MealSelection.js
+                |-- SelectionHistory.js
+                |-- VotingCountdown.js
+                |-- WeeklyMenu.js
+            |-- notifications
+                |-- NotificationBadge.js
+                |-- NotificationCenter.js
+                |-- NotificationDetail.js
+                |-- NotificationPermissionPrompt.js
+                |-- NotificationPreferences.js
+                |-- NotificationSoundToggle.js
+                |-- NotificationsPage.js
+                |-- README.md
+                |-- TestNotifications.js
+            |-- pages
+                |-- About.js
+                |-- Home.js
+                |-- NotFound.js
+            |-- profile
+                |-- Profile.js
+                |-- Profile.jsx
+            |-- routing
+                |-- AdminRoute.js
+                |-- LinkBehavior.js
+                |-- PrivateRoute.js
+                |-- PrivateRoute.jsx
+            |-- statistics
+                |-- MealStatistics.js
+        |-- dev
+            |-- README.md
+            |-- index.js
+            |-- palette.jsx
+            |-- previews.jsx
+            |-- useInitial.js
+        |-- index.css
+        |-- index.js
+        |-- reducers
+            |-- alertReducer.js
+            |-- authReducer.js
+            |-- index.js
+            |-- mealReducer.js
+            |-- menuReducer.js
+            |-- notificationReducer.js
+            |-- selectionReducer.js
+            |-- timeReducer.js
+            |-- userReducer.js
+        |-- setupProxy.js
+        |-- store.js
+        |-- utils
+            |-- api.js
+            |-- browserNotifications.js
+            |-- dateUtils.js
+            |-- exportUtils.js
+            |-- mockNotificationService.js
+            |-- notificationPreferences.js
+            |-- notificationUtils.js
+            |-- setAuthToken.js
+            |-- socket.js
+            |-- timeRestriction.js
+            |-- validation.js
+|-- controllers
+    |-- authController.js
+    |-- mealController.js
+    |-- menuController.js
+    |-- notificationController.js
+    |-- selectionController.js
+    |-- userController.js
+|-- create-admin-user.js
+|-- create-admin.js
+|-- database.js
+|-- demoData.js
+|-- docs
+    |-- API_DOCUMENTATION.md
+    |-- DEPLOYMENT_GUIDE.md
+    |-- DEVELOPMENT_GUIDE.md
+    |-- ERROR_HANDLING.md
+    |-- TESTING.md
+    |-- TIME_RESTRICTIONS.md
+    |-- USER_GUIDE.md
+|-- jest.config.js
+|-- login-flow-analysis.md
+|-- login-test-comparison.html
+|-- login-test-debug.html
+|-- login-test-direct.html
+|-- mealController.js
+|-- menuController.js
+|-- middleware
+    |-- advancedResults.js
+    |-- async.js
+    |-- auth.js
+    |-- error.js
+    |-- timeRestriction.js
+|-- models
+    |-- Meal.js
+    |-- Notification.js
+    |-- Selection.js
+    |-- User.js
+    |-- WeeklyMenu.js
+|-- package-lock.json
+|-- package.json
+|-- routes
+    |-- auth.js
+    |-- meals.js
+    |-- menu.js
+    |-- notifications.js
+    |-- selections.js
+    |-- users.js
+|-- selectionController.js
+|-- server-test.html
+|-- server.js
+|-- test-direct-login.js
+|-- test-login-direct.js
+|-- test-login-proxy.js
+|-- test-login.html
+|-- test-mongodb.js
+|-- test-notifications.js
+|-- test-proxy-login.js
+|-- test-register.html
+|-- test-server-connection.js
+|-- test-server-status.js
+|-- test-time-restriction.js
+|-- timeRestriction.js
+|-- utils
+    |-- errorResponse.js
+    |-- sendEmail.js
+    |-- socket.js
+    |-- timeRestriction.js
+    |-- weekUtils.js

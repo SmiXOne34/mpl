@@ -1,0 +1,175 @@
+const express = require('express');
+const dotenv = require('dotenv');
+const morgan = require('morgan');
+const colors = require('colors');
+const cookieParser = require('cookie-parser');
+const cors = require('cors');
+const path = require('path');
+const http = require('http');
+const helmet = require('helmet');
+const xss = require('xss-clean');
+const rateLimit = require('express-rate-limit');
+const hpp = require('hpp');
+const mongoSanitize = require('express-mongo-sanitize');
+
+// Load environment variables
+dotenv.config({ path: './.env' });
+
+// Import middleware
+const errorHandler = require('./middleware/error');
+
+// Import database connection
+const connectDB = require('./database');
+
+// Import socket.io setup
+const setupSocket = require('./utils/socket');
+
+// Import route files
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/users');
+const mealRoutes = require('./routes/meals');
+const menuRoutes = require('./routes/menu');
+const selectionRoutes = require('./routes/selections');
+const notificationRoutes = require('./routes/notifications');
+const settingsRoutes = require('./routes/settings');
+
+// Connect to database
+connectDB();
+
+// Initialize express app
+const app = express();
+
+// Create HTTP server
+const server = http.createServer(app);
+
+// Set up Socket.io
+const io = setupSocket(server);
+
+// Body parser
+app.use(express.json());
+
+// Cookie parser
+app.use(cookieParser());
+
+// Dev logging middleware
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+}
+
+// Security middleware
+// Set security headers
+app.use(helmet());
+
+// Prevent XSS attacks
+app.use(xss());
+
+// Rate limiting
+const limiter = rateLimit({
+  windowMs: 10 * 60 * 1000, // 10 minutes
+  max: process.env.NODE_ENV === 'development' ? 1000 : 100, // Higher limit in development
+  message: {
+    success: false,
+    error: 'Too many requests from this IP, please try again later'
+  },
+  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
+  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
+});
+
+// Apply rate limiting only to API routes
+app.use('/api', limiter);
+
+// Prevent http param pollution
+app.use(hpp());
+
+// Sanitize data
+app.use(mongoSanitize());
+
+// Enable CORS with simpler configuration for development
+const corsOptions = {
+  origin: 'http://localhost:3000', // Allow only the React app in development
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+  exposedHeaders: ['Content-Length', 'X-Requested-With'],
+  credentials: true, // Include credentials for cross-origin requests
+  preflightContinue: false,
+  optionsSuccessStatus: 200,
+  maxAge: 86400 // 24 hours
+};
+
+// Apply CORS middleware
+app.use(cors(corsOptions));
+
+// Log all requests for debugging
+app.use((req, res, next) => {
+  console.log(`${req.method} ${req.url}`);
+  next();
+});
+
+// Add socket.io to request object with error handling
+app.use((req, res, next) => {
+  try {
+    req.io = io;
+    
+    // Add a safe emit method that won't crash the server if socket operations fail
+    req.safeEmit = (event, data) => {
+      try {
+        if (req.io) {
+          req.io.emit(event, data);
+          console.log(`Successfully emitted ${event} event`);
+        } else {
+          console.log(`Socket not available for ${event} event`);
+        }
+      } catch (error) {
+        console.error(`Error emitting ${event} event:`, error);
+        // Continue processing the request even if socket emit fails
+      }
+    };
+    
+    next();
+  } catch (error) {
+    console.error('Error attaching socket to request:', error);
+    // Continue processing the request even if socket attachment fails
+    next();
+  }
+});
+
+// Mount routers
+app.use('/api/auth', authRoutes);
+app.use('/api/users', userRoutes);
+app.use('/api/meals', mealRoutes);
+app.use('/api/menu', menuRoutes);
+app.use('/api/selections', selectionRoutes);
+app.use('/api/notifications', notificationRoutes);
+app.use('/api/settings', settingsRoutes);
+app.use('/api/ai', require('./routes/api/ai'));
+
+// Serve static assets in production
+if (process.env.NODE_ENV === 'production') {
+  // Set static folder
+  app.use(express.static('client/build'));
+
+  app.get('*', (req, res) => {
+    res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
+  });
+}
+
+// Error handler middleware
+app.use(errorHandler);
+
+// Set port
+const PORT = process.env.PORT || 9091; // Changed from 9090 to avoid port conflict
+
+// Start server only if not in test environment
+let serverInstance;
+if (process.env.NODE_ENV !== 'test') {
+  serverInstance = server.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold);
+  });
+}
+
+// Handle unhandled promise rejections
+process.on('unhandledRejection', (err, promise) => {
+  console.log(`Error: ${err.message}`.red);
+  // Close server & exit process
+  serverInstance.close(() => process.exit(1));
+});

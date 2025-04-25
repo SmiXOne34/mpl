@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Test with Debug</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      cursor: pointer;
+      margin-right: 10px;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+      min-height: 100px;
+      max-height: 400px;
+      overflow: auto;
+    }
+    .debug-info {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f0f8ff;
+    }
+    .success {
+      color: green;
+      font-weight: bold;
+    }
+    .error {
+      color: red;
+      font-weight: bold;
+    }
+    .steps {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #fffaf0;
+    }
+  </style>
+</head>
+<body>
+  <h1>Login Test with Debug Information</h1>
+  
+  <div class="form-group">
+    <label for="server-url">Server URL:</label>
+    <input type="text" id="server-url" value="http://localhost:9090">
+  </div>
+  
+  <div class="form-group">
+    <label for="email">Email:</label>
+    <input type="email" id="email" value="admin@example.com">
+  </div>
+  
+  <div class="form-group">
+    <label for="password">Password:</label>
+    <input type="password" id="password" value="admin123">
+  </div>
+  
+  <button onclick="testServerConnection()">1. Test Server Connection</button>
+  <button onclick="testLoginEndpoint()">2. Test Login Endpoint</button>
+  <button onclick="login()">3. Attempt Login</button>
+  
+  <div id="result" class="result">
+    <p>Results will appear here...</p>
+  </div>
+  
+  <div class="debug-info">
+    <h3>Debug Information</h3>
+    <div id="debug-info">
+      <p>No debug information available yet. Run tests to see details.</p>
+    </div>
+  </div>
+  
+  <div class="steps">
+    <h3>Troubleshooting Steps</h3>
+    <ol>
+      <li>First, test if the server is running and accessible</li>
+      <li>Then, test if the login endpoint is reachable</li>
+      <li>Finally, attempt to login with credentials</li>
+    </ol>
+    <p>If any step fails, check the debug information for details on what went wrong.</p>
+  </div>
+  
+  <script>
+    // Global debug info
+    const debugInfo = {
+      serverStatus: 'Not tested',
+      endpointStatus: 'Not tested',
+      loginStatus: 'Not tested',
+      errors: []
+    };
+    
+    // Update debug info display
+    function updateDebugInfo() {
+      const debugDiv = document.getElementById('debug-info');
+      
+      debugDiv.innerHTML = `
+        <p><strong>Server Status:</strong> ${debugInfo.serverStatus}</p>
+        <p><strong>Login Endpoint Status:</strong> ${debugInfo.endpointStatus}</p>
+        <p><strong>Login Attempt Status:</strong> ${debugInfo.loginStatus}</p>
+        ${debugInfo.errors.length > 0 ? 
+          `<p><strong>Errors:</strong></p>
+           <ul>${debugInfo.errors.map(err => `<li>${err}</li>`).join('')}</ul>` 
+          : ''}
+        <p><strong>Browser:</strong> ${navigator.userAgent}</p>
+        <p><strong>Online:</strong> ${navigator.onLine ? 'Yes' : 'No'}</p>
+        <p><strong>Cookies Enabled:</strong> ${navigator.cookieEnabled ? 'Yes' : 'No'}</p>
+      `;
+    }
+    
+    // Test server connection
+    async function testServerConnection() {
+      const serverUrl = document.getElementById('server-url').value;
+      const resultDiv = document.getElementById('result');
+      
+      resultDiv.innerHTML = '<p>Testing server connection...</p>';
+      
+      try {
+        const startTime = performance.now();
+        const response = await fetch(serverUrl, {
+          method: 'GET',
+          mode: 'cors',
+          cache: 'no-cache'
+        });
+        const endTime = performance.now();
+        const responseTime = Math.round(endTime - startTime);
+        
+        if (response.ok) {
+          debugInfo.serverStatus = `Connected (${responseTime}ms)`;
+          resultDiv.innerHTML = `
+            <p class="success">✅ Server is running and accessible!</p>
+            <p>Response time: ${responseTime}ms</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+          `;
+        } else {
+          debugInfo.serverStatus = `Error: ${response.status} ${response.statusText}`;
+          debugInfo.errors.push(`Server returned status ${response.status} ${response.statusText}`);
+          resultDiv.innerHTML = `
+            <p class="error">⚠️ Server returned an error response.</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <p>Response time: ${responseTime}ms</p>
+          `;
+        }
+      } catch (error) {
+        debugInfo.serverStatus = `Failed: ${error.message}`;
+        debugInfo.errors.push(`Server connection error: ${error.message}`);
+        resultDiv.innerHTML = `
+          <p class="error">❌ Failed to connect to server!</p>
+          <p>Error: ${error.message}</p>
+          <p>Possible causes:</p>
+          <ul>
+            <li>The server is not running</li>
+            <li>The URL is incorrect</li>
+            <li>There's a network issue</li>
+            <li>CORS is blocking the request</li>
+          </ul>
+          <p>Try running the server with:</p>
+          <pre>cd /Users/mac/test/MPL2 && npm run server</pre>
+        `;
+      }
+      
+      updateDebugInfo();
+    }
+    
+    // Test login endpoint
+    async function testLoginEndpoint() {
+      const serverUrl = document.getElementById('server-url').value;
+      const loginUrl = `${serverUrl}/api/auth/login`;
+      const resultDiv = document.getElementById('result');
+      
+      resultDiv.innerHTML = '<p>Testing login endpoint...</p>';
+      
+      try {
+        const startTime = performance.now();
+        const response = await fetch(loginUrl, {
+          method: 'OPTIONS',
+          mode: 'cors',
+          cache: 'no-cache',
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
+        const endTime = performance.now();
+        const responseTime = Math.round(endTime - startTime);
+        
+        // Check CORS headers
+        const corsHeaders = {
+          'Access-Control-Allow-Origin': response.headers.get('Access-Control-Allow-Origin'),
+          'Access-Control-Allow-Methods': response.headers.get('Access-Control-Allow-Methods'),
+          'Access-Control-Allow-Headers': response.headers.get('Access-Control-Allow-Headers'),
+          'Access-Control-Allow-Credentials': response.headers.get('Access-Control-Allow-Credentials')
+        };
+        
+        const corsConfigured = corsHeaders['Access-Control-Allow-Origin'] !== null;
+        
+        if (response.ok && corsConfigured) {
+          debugInfo.endpointStatus = `Accessible (${responseTime}ms)`;
+          resultDiv.innerHTML = `
+            <p class="success">✅ Login endpoint is accessible and CORS is configured!</p>
+            <p>Response time: ${responseTime}ms</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <p>CORS Headers:</p>
+            <pre>${JSON.stringify(corsHeaders, null, 2)}</pre>
+          `;
+        } else if (response.ok) {
+          debugInfo.endpointStatus = `Accessible but CORS issues (${responseTime}ms)`;
+          debugInfo.errors.push('Login endpoint accessible but CORS not properly configured');
+          resultDiv.innerHTML = `
+            <p class="error">⚠️ Login endpoint is accessible but CORS is not properly configured!</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <p>Response time: ${responseTime}ms</p>
+            <p>CORS Headers:</p>
+            <pre>${JSON.stringify(corsHeaders, null, 2)}</pre>
+          `;
+        } else {
+          debugInfo.endpointStatus = `Error: ${response.status} ${response.statusText}`;
+          debugInfo.errors.push(`Login endpoint returned status ${response.status} ${response.statusText}`);
+          resultDiv.innerHTML = `
+            <p class="error">⚠️ Login endpoint returned an error response.</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <p>Response time: ${responseTime}ms</p>
+          `;
+        }
+      } catch (error) {
+        debugInfo.endpointStatus = `Failed: ${error.message}`;
+        debugInfo.errors.push(`Login endpoint error: ${error.message}`);
+        resultDiv.innerHTML = `
+          <p class="error">❌ Failed to connect to login endpoint!</p>
+          <p>URL: ${loginUrl}</p>
+          <p>Error: ${error.message}</p>
+          <p>Possible causes:</p>
+          <ul>
+            <li>The server is not running</li>
+            <li>The endpoint URL is incorrect</li>
+            <li>CORS is blocking the request</li>
+            <li>The server doesn't support OPTIONS requests</li>
+          </ul>
+        `;
+      }
+      
+      updateDebugInfo();
+    }
+    
+    // Attempt login
+    async function login() {
+      const serverUrl = document.getElementById('server-url').value;
+      const loginUrl = `${serverUrl}/api/auth/login`;
+      const email = document.getElementById('email').value;
+      const password = document.getElementById('password').value;
+      const resultDiv = document.getElementById('result');
+      
+      resultDiv.innerHTML = '<p>Attempting login...</p>';
+      
+      try {
+        const startTime = performance.now();
+        const response = await fetch(loginUrl, {
+          method: 'POST',
+          mode: 'cors',
+          cache: 'no-cache',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify({
+            email,
+            password
+          })
+        });
+        const endTime = performance.now();
+        const responseTime = Math.round(endTime - startTime);
+        
+        try {
+          const data = await response.json();
+          
+          if (response.ok && data.success) {
+            debugInfo.loginStatus = 'Successful';
+            resultDiv.innerHTML = `
+              <p class="success">✅ Login successful!</p>
+              <p>Response time: ${responseTime}ms</p>
+              <p>Status: ${response.status} ${response.statusText}</p>
+              <p>Token: ${data.token ? data.token.substring(0, 20) + '...' : 'None'}</p>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+            
+            // Store token in localStorage
+            if (data.token) {
+              localStorage.setItem('token', data.token);
+            }
+          } else {
+            debugInfo.loginStatus = `Failed: ${data.error || 'Unknown error'}`;
+            debugInfo.errors.push(`Login failed: ${data.error || 'Unknown error'}`);
+            resultDiv.innerHTML = `
+              <p class="error">⚠️ Login failed!</p>
+              <p>Status: ${response.status} ${response.statusText}</p>
+              <p>Response time: ${responseTime}ms</p>
+              <p>Error: ${data.error || 'Unknown error'}</p>
+              <pre>${JSON.stringify(data, null, 2)}</pre>
+            `;
+          }
+        } catch (jsonError) {
+          debugInfo.loginStatus = `Failed: Invalid JSON response`;
+          debugInfo.errors.push(`Invalid JSON response: ${jsonError.message}`);
+          resultDiv.innerHTML = `
+            <p class="error">⚠️ Login response is not valid JSON!</p>
+            <p>Status: ${response.status} ${response.statusText}</p>
+            <p>Response time: ${responseTime}ms</p>
+            <p>Error: ${jsonError.message}</p>
+          `;
+        }
+      } catch (error) {
+        debugInfo.loginStatus = `Failed: ${error.message}`;
+        debugInfo.errors.push(`Login request error: ${error.message}`);
+        resultDiv.innerHTML = `
+          <p class="error">❌ Login request failed!</p>
+          <p>URL: ${loginUrl}</p>
+          <p>Error: ${error.message}</p>
+          <p>Possible causes:</p>
+          <ul>
+            <li>The server is not running</li>
+            <li>CORS is blocking the request</li>
+            <li>Network connectivity issues</li>
+            <li>The server is not handling POST requests correctly</li>
+          </ul>
+          <p>Recommendations:</p>
+          <ol>
+            <li>Make sure the server is running with: <code>npm run server</code></li>
+            <li>Check server logs for errors</li>
+            <li>Verify CORS configuration in server.js</li>
+            <li>Try using a tool like Postman to test the API directly</li>
+          </ol>
+        `;
+      }
+      
+      updateDebugInfo();
+    }
+    
+    // Initialize
+    window.onload = function() {
+      updateDebugInfo();
+    };
+  </script>
+</body>
+</html>

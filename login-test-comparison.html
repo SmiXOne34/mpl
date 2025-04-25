@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login Test Comparison</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 1000px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    .container {
+      display: flex;
+      gap: 20px;
+    }
+    .login-form {
+      flex: 1;
+      padding: 20px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+    }
+    .form-group {
+      margin-bottom: 15px;
+    }
+    label {
+      display: block;
+      margin-bottom: 5px;
+    }
+    input {
+      width: 100%;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    button {
+      padding: 10px 15px;
+      background-color: #4caf50;
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .result {
+      margin-top: 20px;
+      padding: 10px;
+      border: 1px solid #ddd;
+      background-color: #f9f9f9;
+      min-height: 100px;
+      max-height: 300px;
+      overflow: auto;
+    }
+    h2 {
+      margin-top: 0;
+    }
+  </style>
+</head>
+<body>
+  <h1>MealWise Family Login Test Comparison</h1>
+  
+  <div class="container">
+    <!-- Direct API Login -->
+    <div class="login-form">
+      <h2>Direct API Login</h2>
+      <p>Tests login directly to the API endpoint</p>
+      
+      <div class="form-group">
+        <label for="direct-email">Email:</label>
+        <input type="email" id="direct-email" value="admin@example.com">
+      </div>
+      
+      <div class="form-group">
+        <label for="direct-password">Password:</label>
+        <input type="password" id="direct-password" value="admin123">
+      </div>
+      
+      <div class="form-group">
+        <label for="direct-api-url">API URL:</label>
+        <input type="text" id="direct-api-url" value="http://localhost:9090/api/auth/login">
+      </div>
+      
+      <button onclick="directLogin()">Login Directly</button>
+      
+      <div id="direct-result" class="result">
+        <p>Results will appear here...</p>
+      </div>
+    </div>
+    
+    <!-- Proxy Login -->
+    <div class="login-form">
+      <h2>Proxy Login</h2>
+      <p>Tests login through the client proxy</p>
+      
+      <div class="form-group">
+        <label for="proxy-email">Email:</label>
+        <input type="email" id="proxy-email" value="admin@example.com">
+      </div>
+      
+      <div class="form-group">
+        <label for="proxy-password">Password:</label>
+        <input type="password" id="proxy-password" value="admin123">
+      </div>
+      
+      <div class="form-group">
+        <label for="proxy-url">Proxy URL:</label>
+        <input type="text" id="proxy-url" value="http://localhost:3000/api/auth/login">
+      </div>
+      
+      <button onclick="proxyLogin()">Login via Proxy</button>
+      
+      <div id="proxy-result" class="result">
+        <p>Results will appear here...</p>
+      </div>
+    </div>
+  </div>
+  
+  <script>
+    // Direct API Login
+    async function directLogin() {
+      const email = document.getElementById('direct-email').value;
+      const password = document.getElementById('direct-password').value;
+      const apiUrl = document.getElementById('direct-api-url').value;
+      
+      const resultDiv = document.getElementById('direct-result');
+      resultDiv.innerHTML = '<p>Sending request to direct API...</p>';
+      
+      try {
+        const response = await fetch(apiUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+          credentials: 'include'
+        });
+        
+        const data = await response.json();
+        
+        resultDiv.innerHTML = `
+          <h3>Response:</h3>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+        
+        if (data.success) {
+          resultDiv.innerHTML += `
+            <p style="color: green;">Login successful!</p>
+            <p>Token: ${data.token}</p>
+          `;
+          
+          // Store token in localStorage
+          localStorage.setItem('directToken', data.token);
+          
+          // Test the /api/auth/me endpoint
+          testDirectMe(data.token, apiUrl.replace('/login', '/me'));
+        } else {
+          resultDiv.innerHTML += `
+            <p style="color: red;">Login failed: ${data.error || 'Unknown error'}</p>
+          `;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <h3>Error:</h3>
+          <pre>${error.message}</pre>
+          <p>Note: This error might occur if the server is not running or if there are CORS issues.</p>
+        `;
+      }
+    }
+    
+    // Test Direct /me endpoint
+    async function testDirectMe(token, meUrl) {
+      const resultDiv = document.getElementById('direct-result');
+      
+      try {
+        resultDiv.innerHTML += `<p>Testing ${meUrl} endpoint...</p>`;
+        
+        const response = await fetch(meUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          credentials: 'include'
+        });
+        
+        const data = await response.json();
+        
+        resultDiv.innerHTML += `
+          <h3>User Data:</h3>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML += `
+          <h3>Error fetching user data:</h3>
+          <pre>${error.message}</pre>
+        `;
+      }
+    }
+    
+    // Proxy Login
+    async function proxyLogin() {
+      const email = document.getElementById('proxy-email').value;
+      const password = document.getElementById('proxy-password').value;
+      const proxyUrl = document.getElementById('proxy-url').value;
+      
+      const resultDiv = document.getElementById('proxy-result');
+      resultDiv.innerHTML = '<p>Sending request through proxy...</p>';
+      
+      try {
+        const response = await fetch(proxyUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+          credentials: 'include'
+        });
+        
+        const data = await response.json();
+        
+        resultDiv.innerHTML = `
+          <h3>Response:</h3>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+        
+        if (data.success) {
+          resultDiv.innerHTML += `
+            <p style="color: green;">Login successful!</p>
+            <p>Token: ${data.token}</p>
+          `;
+          
+          // Store token in localStorage
+          localStorage.setItem('proxyToken', data.token);
+          
+          // Test the /api/auth/me endpoint
+          testProxyMe(data.token, proxyUrl.replace('/login', '/me'));
+        } else {
+          resultDiv.innerHTML += `
+            <p style="color: red;">Login failed: ${data.error || 'Unknown error'}</p>
+          `;
+        }
+      } catch (error) {
+        resultDiv.innerHTML = `
+          <h3>Error:</h3>
+          <pre>${error.message}</pre>
+          <p>Note: This error might occur if the client is not running or if there are proxy configuration issues.</p>
+        `;
+      }
+    }
+    
+    // Test Proxy /me endpoint
+    async function testProxyMe(token, meUrl) {
+      const resultDiv = document.getElementById('proxy-result');
+      
+      try {
+        resultDiv.innerHTML += `<p>Testing ${meUrl} endpoint through proxy...</p>`;
+        
+        const response = await fetch(meUrl, {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          credentials: 'include'
+        });
+        
+        const data = await response.json();
+        
+        resultDiv.innerHTML += `
+          <h3>User Data:</h3>
+          <pre>${JSON.stringify(data, null, 2)}</pre>
+        `;
+      } catch (error) {
+        resultDiv.innerHTML += `
+          <h3>Error fetching user data:</h3>
+          <pre>${error.message}</pre>
+        `;
+      }
+    }
+  </script>
+</body>
+</html>

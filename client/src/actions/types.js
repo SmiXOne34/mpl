@@ -1,0 +1,73 @@
+// Auth Types
+export const REGISTER_SUCCESS = 'REGISTER_SUCCESS';
+export const REGISTER_FAIL = 'REGISTER_FAIL';
+export const USER_LOADED = 'USER_LOADED';
+export const AUTH_ERROR = 'AUTH_ERROR';
+export const LOGIN_SUCCESS = 'LOGIN_SUCCESS';
+export const LOGIN_FAIL = 'LOGIN_FAIL';
+export const LOGOUT = 'LOGOUT';
+export const CLEAR_ERRORS = 'CLEAR_ERRORS';
+export const UPDATE_PROFILE_SUCCESS = 'UPDATE_PROFILE_SUCCESS';
+export const UPDATE_PROFILE_FAIL = 'UPDATE_PROFILE_FAIL';
+export const UPDATE_PASSWORD_SUCCESS = 'UPDATE_PASSWORD_SUCCESS';
+export const UPDATE_PASSWORD_FAIL = 'UPDATE_PASSWORD_FAIL';
+export const UPLOAD_PROFILE_IMAGE_SUCCESS = 'UPLOAD_PROFILE_IMAGE_SUCCESS';
+export const UPLOAD_PROFILE_IMAGE_FAIL = 'UPLOAD_PROFILE_IMAGE_FAIL';
+
+// User Types
+export const GET_USERS = 'GET_USERS';
+export const GET_USER = 'GET_USER';
+export const CREATE_USER = 'CREATE_USER';
+export const UPDATE_USER = 'UPDATE_USER';
+export const DELETE_USER = 'DELETE_USER';
+export const UPDATE_USER_ROLE = 'UPDATE_USER_ROLE';
+export const USER_ERROR = 'USER_ERROR';
+
+// Meal Types
+export const GET_MEALS = 'GET_MEALS';
+export const GET_MEAL = 'GET_MEAL';
+export const CREATE_MEAL = 'CREATE_MEAL';
+export const UPDATE_MEAL = 'UPDATE_MEAL';
+export const DELETE_MEAL = 'DELETE_MEAL';
+export const MEAL_ERROR = 'MEAL_ERROR';
+export const CLEAR_MEAL = 'CLEAR_MEAL';
+export const GENERATE_MEAL = 'GENERATE_MEAL';
+
+// Menu Types
+export const GET_WEEKLY_MENU = 'GET_WEEKLY_MENU';
+export const GET_MENU_BY_WEEK = 'GET_MENU_BY_WEEK';
+export const CREATE_MENU = 'CREATE_MENU';
+export const UPDATE_MENU = 'UPDATE_MENU';
+export const DELETE_MENU = 'DELETE_MENU';
+export const MENU_ERROR = 'MENU_ERROR';
+
+// Selection Types
+export const GET_MY_SELECTIONS = 'GET_MY_SELECTIONS';
+export const GET_FAMILY_SELECTIONS = 'GET_FAMILY_SELECTIONS';
+export const CREATE_SELECTION = 'CREATE_SELECTION';
+export const DELETE_SELECTION = 'DELETE_SELECTION';
+export const GET_POPULAR_MEAL = 'GET_POPULAR_MEAL';
+export const GET_SELECTION_HISTORY = 'GET_SELECTION_HISTORY';
+export const SELECTION_ERROR = 'SELECTION_ERROR';
+
+// Time Types
+export const GET_VOTING_STATUS = 'GET_VOTING_STATUS';
+export const UPDATE_VOTING_SETTINGS = 'UPDATE_VOTING_SETTINGS';
+export const TIME_ERROR = 'TIME_ERROR';
+
+// Notification Types
+export const GET_NOTIFICATIONS = 'GET_NOTIFICATIONS';
+export const ADD_NOTIFICATION = 'ADD_NOTIFICATION';
+export const MARK_NOTIFICATION_READ = 'MARK_NOTIFICATION_READ';
+export const CLEAR_NOTIFICATIONS = 'CLEAR_NOTIFICATIONS';
+export const NOTIFICATION_ERROR = 'NOTIFICATION_ERROR';
+
+// Settings Types
+export const GET_SETTINGS = 'GET_SETTINGS';
+export const UPDATE_SETTINGS = 'UPDATE_SETTINGS';
+export const SETTINGS_ERROR = 'SETTINGS_ERROR';
+
+// UI Types
+export const SET_LOADING = 'SET_LOADING';
+export const SET_ALERT = 'SET_ALERT';
+export const REMOVE_ALERT = 'REMOVE_ALERT';
