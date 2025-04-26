@@ -1,28 +1,16 @@
 {
   "version": 2,
-  "builds": [
-    {
-      "src": "server.js",
-      "use": "@vercel/node"
-    },
-    {
-      "src": "client/package.json",
-      "use": "@vercel/static-build",
-      "config": {
-        "distDir": "build"
-      }
-    }
+  "buildCommand": "npm run vercel-build",
+  "outputDirectory": "client/build",
+  "installCommand": "npm install --legacy-peer-deps",
+  "rewrites": [
+    { "source": "/api/(.*)", "destination": "/api/$1" }
   ],
-  "routes": [
-    {
-      "src": "/api/(.*)",
-      "dest": "server.js"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "client/build/$1"
+  "functions": {
+    "api/**/*": {
+      "memory": 1024
     }
-  ],
+  },
   "env": {
     "NODE_ENV": "production"
   }

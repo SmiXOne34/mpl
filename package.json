@@ -12,7 +12,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install --prefix client && npm run build --prefix client"
+    "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install --prefix client && npm run build --prefix client",
+    "vercel-build": "npm install --legacy-peer-deps && cd client && npm install --legacy-peer-deps && npm run build"
   },
   "author": "MealWise Team",
   "license": "MIT",

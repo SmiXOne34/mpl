@@ -161,9 +161,9 @@ app.use(errorHandler);
 // Set port
 const PORT = process.env.PORT || 9091; // Changed from 9090 to avoid port conflict
 
-// Start server only if not in test environment
+// Start server only if not in test environment and not in Vercel serverless environment
 let serverInstance;
-if (process.env.NODE_ENV !== 'test') {
+if (process.env.NODE_ENV !== 'test' && process.env.VERCEL !== '1') {
   serverInstance = server.listen(PORT, () => {
     console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold);
   });
@@ -172,6 +172,13 @@ if (process.env.NODE_ENV !== 'test') {
 // Handle unhandled promise rejections
 process.on('unhandledRejection', (err, promise) => {
   console.log(`Error: ${err.message}`.red);
-  // Close server & exit process
-  serverInstance.close(() => process.exit(1));
+  // Close server & exit process if not in serverless environment
+  if (serverInstance) {
+    serverInstance.close(() => process.exit(1));
+  } else {
+    console.error('Unhandled rejection in serverless environment:', err);
+  }
 });
+
+// Export the Express app for serverless environments
+module.exports = app;
