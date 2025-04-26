@@ -61,6 +61,8 @@ export const getMenuByWeek = weekId => async dispatch => {
       type: GET_MENU_BY_WEEK,
       payload: res.data.data
     });
+
+    return res.data.data; // Return the data for promise chaining
   } catch (err) {
     console.error('Error fetching menu by week:', err);
     
@@ -73,6 +75,9 @@ export const getMenuByWeek = weekId => async dispatch => {
       type: MENU_ERROR,
       payload: errorMessage
     });
+
+    // Rethrow the error for promise chaining
+    throw err;
   }
 };
 

@@ -3,7 +3,7 @@ import { Link as RouterLink, useHistory } from 'react-router-dom';
 import LinkBehavior from '../routing/LinkBehavior';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
-import { getWeeklyMenu, createMenu, updateMenu } from '../../actions/menuActions';
+import { getWeeklyMenu, createMenu, updateMenu, getMenuByWeek } from '../../actions/menuActions';
 import { getMeals } from '../../actions/mealActions';
 import { getDayName, getWeekNumber, formatReadableDate } from '../../utils/dateUtils';
 
@@ -348,9 +348,9 @@ const MenuForm = ({
     
     // Use a Promise to handle the menu update/creation
     const saveMenu = () => {
+      // If we're editing an existing menu, use updateMenu
       if (currentMenu && currentMenu._id) {
         // Determine which ID to use for the update
-        // We need to figure out the correct ID format for the API
         let idToUse;
         
         // Option 1: Use the weekId from the current menu if it's in the expected format (YYYY-WW)
@@ -377,8 +377,22 @@ const MenuForm = ({
         
         return updateMenu(idToUse, menuPayload);
       } else {
-        console.log('Creating new menu with payload:', JSON.stringify(menuPayload, null, 2));
-        return createMenu(menuPayload);
+        // First check if a menu already exists for this week
+        return getMenuByWeek(weekId)
+          .then(existingMenu => {
+            console.log('Found existing menu for week:', weekId);
+            // If menu exists, update it instead of creating a new one
+            return updateMenu(weekId, menuPayload);
+          })
+          .catch(err => {
+            // If no menu exists (404 error), create a new one
+            if (err.response && err.response.status === 404) {
+              console.log('No existing menu found for week:', weekId, 'Creating new menu');
+              return createMenu(menuPayload);
+            }
+            // For other errors, rethrow
+            throw err;
+          });
       }
     };
     
@@ -913,6 +927,7 @@ MenuForm.propTypes = {
   menu: PropTypes.object.isRequired,
   meal: PropTypes.object.isRequired,
   getWeeklyMenu: PropTypes.func.isRequired,
+  getMenuByWeek: PropTypes.func.isRequired,
   createMenu: PropTypes.func.isRequired,
   updateMenu: PropTypes.func.isRequired,
   getMeals: PropTypes.func.isRequired,
@@ -925,6 +940,7 @@ const mapStateToProps = (state) => ({
 
 export default connect(mapStateToProps, {
   getWeeklyMenu,
+  getMenuByWeek,
   createMenu,
   updateMenu,
   getMeals,
