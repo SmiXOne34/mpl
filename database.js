@@ -10,8 +10,23 @@ mongoose.set('strictQuery', true);
 const connectDB = async () => {
   try {
     // Get MongoDB connection string from environment variables
-    // In Docker environment, use the service name 'mongo' instead of localhost
-    const mongoURI = process.env.MONGO_URI || 'mongodb://mongo:27017/mealwise';
+    // Make sure we're connecting to the correct database
+    let mongoURI = process.env.MONGO_URI || 'mongodb://mongo:27017/mealwise';
+    
+    // If MONGO_URI is set but doesn't specify a database, append the database name
+    if (process.env.MONGO_URI && !process.env.MONGO_URI.includes('mealwise')) {
+      // Check if the URI already has query parameters
+      if (process.env.MONGO_URI.includes('?')) {
+        // Insert the database name before the query parameters
+        mongoURI = process.env.MONGO_URI.replace('?', '/mealwise?');
+      } else {
+        // Append the database name
+        mongoURI = `${process.env.MONGO_URI}/mealwise`;
+      }
+      console.log('Modified MongoDB URI to include database name: mealwise');
+    }
+    
+    console.log(`Connecting to MongoDB with URI: ${mongoURI.replace(/mongodb\+srv:\/\/([^:]+):([^@]+)@/, 'mongodb+srv://****:****@')}`);
     
     // Connection options
     const options = {

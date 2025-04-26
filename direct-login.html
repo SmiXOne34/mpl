@@ -137,6 +137,15 @@
         <button onclick="checkDbStatus()">Check Database Status</button>
         <button onclick="listUsers()">List All Users</button>
         <button onclick="createTestUser()">Create Test User</button>
+        
+        <div class="form-group" style="margin-top: 20px;">
+            <label for="databaseName">Switch Database:</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="databaseName" placeholder="Database name (e.g. mealwise)" value="mealwise">
+                <button onclick="switchDatabase()" style="background-color: #ff9800;">Switch</button>
+            </div>
+        </div>
+        
         <div id="dbResult" class="result">
             <p>Results will appear here...</p>
         </div>
@@ -458,6 +467,72 @@
                     } else {
                         resultDiv.innerHTML += `
                             <p class="error">Failed to create test user: ${data.error || 'Unknown error'}</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                    <p>This could indicate a CORS issue or that the server is not reachable.</p>
+                `;
+            }
+        }
+        
+        // Switch database
+        async function switchDatabase() {
+            const databaseName = document.getElementById('databaseName').value;
+            
+            if (!databaseName) {
+                alert('Please enter a database name');
+                return;
+            }
+            
+            const resultDiv = document.getElementById('dbResult');
+            resultDiv.innerHTML = `<p>Switching to database: ${databaseName}...</p>`;
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/diagnostic/switch-database`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        databaseName
+                    }),
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Switch Database (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">${data.message}</p>
+                            <p>Previous database: ${data.previousDatabase}</p>
+                            <p>Current database: ${data.currentDatabase}</p>
+                            <p>Checking database status after switch...</p>
+                        `;
+                        
+                        // Check database status after switching
+                        setTimeout(checkDbStatus, 1000);
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Failed to switch database: ${data.error || 'Unknown error'}</p>
                         `;
                     }
                 } catch (parseError) {

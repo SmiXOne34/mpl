@@ -19,11 +19,51 @@ router.get('/db-status', async (req, res) => {
       3: 'disconnecting'
     };
     
+    // Get connection details
+    let connectionDetails = {
+      host: 'unknown',
+      database: 'unknown',
+      port: 'unknown'
+    };
+    
+    if (mongoose.connection && mongoose.connection.client) {
+      try {
+        // Get connection details
+        const connStr = mongoose.connection.client.s.url || 'unknown';
+        
+        // Parse connection string to get host, database, etc.
+        if (connStr !== 'unknown') {
+          // Mask password in connection string for security
+          const maskedConnStr = connStr.replace(/mongodb(\+srv)?:\/\/([^:]+):([^@]+)@/, 'mongodb$1://$2:****@');
+          connectionDetails.connectionString = maskedConnStr;
+          
+          // Extract database name
+          const dbNameMatch = connStr.match(/\/([^/?]+)(\?|$)/);
+          if (dbNameMatch && dbNameMatch[1]) {
+            connectionDetails.database = dbNameMatch[1];
+          }
+          
+          // Extract host
+          const hostMatch = connStr.match(/@([^/:]+)(:|\/|$)/);
+          if (hostMatch && hostMatch[1]) {
+            connectionDetails.host = hostMatch[1];
+          }
+        }
+      } catch (error) {
+        console.error('Error getting connection details:', error);
+      }
+    }
+    
     // Get database stats
     let dbStats = null;
+    let collections = [];
     if (dbState === 1) {
       try {
         dbStats = await mongoose.connection.db.stats();
+        
+        // Get list of collections
+        const collectionsList = await mongoose.connection.db.listCollections().toArray();
+        collections = collectionsList.map(col => col.name);
       } catch (error) {
         console.error('Error getting DB stats:', error);
       }
@@ -50,12 +90,21 @@ router.get('/db-status', async (req, res) => {
       console.error('Error getting sample user:', error);
     }
     
+    // Get MongoDB URI from environment
+    let mongoUriInfo = 'Not set';
+    if (process.env.MONGO_URI) {
+      // Mask password in connection string for security
+      mongoUriInfo = process.env.MONGO_URI.replace(/mongodb(\+srv)?:\/\/([^:]+):([^@]+)@/, 'mongodb$1://$2:****@');
+    }
+    
     res.status(200).json({
       success: true,
       database: {
         state: dbState,
         stateText: dbStateText[dbState],
-        connectionString: process.env.MONGO_URI ? 'Set (value hidden)' : 'Not set',
+        connectionDetails: connectionDetails,
+        currentDatabase: connectionDetails.database,
+        collections: collections,
         stats: dbStats
       },
       users: {
@@ -64,6 +113,7 @@ router.get('/db-status', async (req, res) => {
       },
       environment: {
         NODE_ENV: process.env.NODE_ENV,
+        MONGO_URI: mongoUriInfo,
         JWT_SECRET: process.env.JWT_SECRET ? 'Set (value hidden)' : 'Not set',
         JWT_EXPIRE: process.env.JWT_EXPIRE,
         JWT_COOKIE_EXPIRE: process.env.JWT_COOKIE_EXPIRE,
@@ -140,6 +190,64 @@ router.get('/users', async (req, res) => {
     });
   } catch (error) {
     console.error('Error listing users:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error',
+      message: error.message
+    });
+  }
+});
+
+// Switch database (for troubleshooting)
+router.post('/switch-database', async (req, res) => {
+  try {
+    const { databaseName } = req.body;
+    
+    if (!databaseName) {
+      return res.status(400).json({
+        success: false,
+        error: 'Please provide a database name'
+      });
+    }
+    
+    // Get current connection string
+    let currentUri = mongoose.connection.client.s.url;
+    
+    // Extract the base URI without the database name
+    let baseUri = currentUri;
+    const dbNameMatch = currentUri.match(/(.*\/)[^/?]+(\?.*)?$/);
+    
+    if (dbNameMatch) {
+      baseUri = dbNameMatch[1];
+      const queryParams = dbNameMatch[2] || '';
+      
+      // Close current connection
+      await mongoose.connection.close();
+      
+      // Connect to the new database
+      const newUri = `${baseUri}${databaseName}${queryParams}`;
+      console.log(`Switching database to: ${databaseName}`);
+      
+      // Connect with the same options as before
+      await mongoose.connect(newUri, {
+        useNewUrlParser: true,
+        useUnifiedTopology: true
+      });
+      
+      res.status(200).json({
+        success: true,
+        message: `Switched to database: ${databaseName}`,
+        previousDatabase: dbNameMatch[1].split('/').filter(Boolean).pop(),
+        currentDatabase: databaseName
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        error: 'Could not parse current database URI'
+      });
+    }
+  } catch (error) {
+    console.error('Error switching database:', error);
     res.status(500).json({
       success: false,
       error: 'Server error',
