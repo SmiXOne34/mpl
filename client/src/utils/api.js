@@ -3,9 +3,13 @@ import axios from 'axios';
 // Determine the base URL based on environment
 const getBaseUrl = () => {
   if (process.env.NODE_ENV === 'production') {
+    // In production, use the same domain (relative URL)
     return '/api';
+  } else if (process.env.REACT_APP_API_URL) {
+    // Use environment variable if available
+    return `${process.env.REACT_APP_API_URL}/api`;
   } else {
-    // Direct connection to the server
+    // Default development server
     return 'http://localhost:9091/api';
   }
 };

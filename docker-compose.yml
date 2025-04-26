@@ -13,6 +13,8 @@ services:
       - JWT_EXPIRE=${JWT_EXPIRE}
       - JWT_COOKIE_EXPIRE=${JWT_COOKIE_EXPIRE}
       - FRONTEND_URL=${FRONTEND_URL}
+      - CLIENT_URL=${FRONTEND_URL}
+      - REACT_APP_API_URL=${FRONTEND_URL}
     restart: always
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9091/api/health"]

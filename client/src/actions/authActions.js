@@ -156,38 +156,68 @@ export const login = (email, password) => async dispatch => {
         url: '/auth/login',
         data: { email }
       });
+      
+      // Add more diagnostic information
+      errorMessage += ' Server might be unavailable or CORS might be blocking the request.';
     } else {
       errorMessage = `Request error: ${err.message}`;
       console.error('Error details:', err);
     }
     
-    // Try a simple fetch to test server connectivity
-    try {
-      console.log('Testing server connectivity...');
-      fetch('http://localhost:9091/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, password })
-      })
-      .then(response => {
-        console.log('Fetch test response status:', response.status);
-        return response.json();
-      })
-      .then(data => {
-        console.log('Fetch test response data:', data);
-      })
-      .catch(fetchErr => {
-        console.error('Fetch test error:', fetchErr);
-      });
-    } catch (testErr) {
-      console.error('Error testing server connectivity:', testErr);
-    }
+    // Get current API base URL for diagnostics
+    const currentBaseUrl = api.defaults.baseURL;
+    console.log('Current API base URL:', currentBaseUrl);
     
-    dispatch({
-      type: LOGIN_FAIL,
-      payload: errorMessage
+    // Try a fetch with absolute URL as a fallback
+    const apiUrl = process.env.NODE_ENV === 'production' 
+      ? `${window.location.origin}/api/auth/login`
+      : 'http://localhost:9091/api/auth/login';
+      
+    console.log(`Testing connectivity with ${apiUrl}...`);
+    
+    // Use fetch API as a fallback
+    fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ email, password }),
+      credentials: 'include'
+    })
+    .then(response => {
+      console.log('Fetch test response status:', response.status);
+      if (response.ok) {
+        return response.json().then(data => {
+          console.log('Fetch test successful:', data);
+          
+          // If fetch succeeds but axios failed, use the fetch result
+          dispatch({
+            type: LOGIN_SUCCESS,
+            payload: data
+          });
+          
+          // Initialize socket connection with the new token
+          if (data && data.token) {
+            console.log('Initializing socket connection after fetch login');
+            initSocket(data.token);
+            
+            // Load user after successful login
+            dispatch(loadUser());
+          }
+        });
+      } else {
+        console.log('Fetch test failed with status:', response.status);
+        throw new Error(`Fetch failed with status ${response.status}`);
+      }
+    })
+    .catch(fetchErr => {
+      console.error('Fetch test error:', fetchErr);
+      
+      // Only dispatch LOGIN_FAIL if the fetch also failed
+      dispatch({
+        type: LOGIN_FAIL,
+        payload: errorMessage
+      });
     });
   }
 };
