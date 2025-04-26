@@ -27,6 +27,7 @@ const setupSocket = require('./utils/socket');
 // Import route files
 const authRoutes = require('./routes/auth');
 const directAuthRoutes = require('./routes/direct-auth');
+const diagnosticRoutes = require('./routes/diagnostic');
 const userRoutes = require('./routes/users');
 const mealRoutes = require('./routes/meals');
 const menuRoutes = require('./routes/menu');
@@ -222,6 +223,7 @@ app.get('/api/diagnostic', (req, res) => {
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/direct-auth', directAuthRoutes); // Direct auth routes for emergency access
+app.use('/api/diagnostic', diagnosticRoutes); // Diagnostic routes for troubleshooting
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
 app.use('/api/menu', menuRoutes);

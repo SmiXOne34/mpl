@@ -132,6 +132,16 @@
         </div>
     </div>
     
+    <div class="container">
+        <h2>Database Diagnostics</h2>
+        <button onclick="checkDbStatus()">Check Database Status</button>
+        <button onclick="listUsers()">List All Users</button>
+        <button onclick="createTestUser()">Create Test User</button>
+        <div id="dbResult" class="result">
+            <p>Results will appear here...</p>
+        </div>
+    </div>
+    
     <script>
         // Get base URL from current location
         const baseUrl = window.location.origin;
@@ -313,6 +323,157 @@
         // Clear emergency result
         function clearEmergencyResult() {
             document.getElementById('emergencyResult').innerHTML = '<p>Results will appear here...</p>';
+        }
+        
+        // Check database status
+        async function checkDbStatus() {
+            const resultDiv = document.getElementById('dbResult');
+            resultDiv.innerHTML = '<p>Checking database status...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/diagnostic/db-status`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Database Status (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">Database connection: ${data.database.stateText}</p>
+                            <p>User count: ${data.users.count}</p>
+                        `;
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Database check failed.</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                    <p>This could indicate a CORS issue or that the server is not reachable.</p>
+                `;
+            }
+        }
+        
+        // List all users
+        async function listUsers() {
+            const resultDiv = document.getElementById('dbResult');
+            resultDiv.innerHTML = '<p>Fetching users...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/diagnostic/users`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>User List (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">Found ${data.count} users</p>
+                        `;
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Failed to list users: ${data.error || 'Unknown error'}</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                    <p>This could indicate a CORS issue or that the server is not reachable.</p>
+                `;
+            }
+        }
+        
+        // Create test user
+        async function createTestUser() {
+            const resultDiv = document.getElementById('dbResult');
+            resultDiv.innerHTML = '<p>Creating test user...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/diagnostic/create-test-user`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Create Test User (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">${data.message}</p>
+                            <p>Email: ${data.user.email}</p>
+                            <p>Password: password123</p>
+                        `;
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Failed to create test user: ${data.error || 'Unknown error'}</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                    <p>This could indicate a CORS issue or that the server is not reachable.</p>
+                `;
+            }
         }
     </script>
 </body>
