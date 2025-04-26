@@ -1,0 +1,24 @@
+{
+  "name": "mealwise-family",
+  "type": "docker-compose",
+  "env": {
+    "NODE_ENV": "production",
+    "PORT": "9091",
+    "MONGO_URI": "mongodb://mongo:27017/mealwise",
+    "JWT_SECRET": "REPLACE_WITH_YOUR_SECRET",
+    "JWT_EXPIRE": "30d",
+    "JWT_COOKIE_EXPIRE": "30",
+    "FRONTEND_URL": "https://REPLACE_WITH_YOUR_DOMAIN"
+  },
+  "domains": [
+    {
+      "domain": "REPLACE_WITH_YOUR_DOMAIN",
+      "service": "app",
+      "port": 9091
+    }
+  ],
+  "healthCheck": {
+    "path": "/api/auth/me",
+    "service": "app"
+  }
+}

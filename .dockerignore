@@ -1,0 +1,14 @@
+node_modules
+client/node_modules
+client/build
+.git
+.github
+.vscode
+.idea
+.env
+npm-debug.log
+.DS_Store
+*.pem
+coverage
+.next
+.vercel
