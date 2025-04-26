@@ -135,6 +135,16 @@ app.use((req, res, next) => {
   }
 });
 
+// Health check endpoint
+app.get('/api/health', (req, res) => {
+  res.status(200).json({
+    status: 'success',
+    message: 'Server is running',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
+
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);

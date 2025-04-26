@@ -4,7 +4,7 @@
   "env": {
     "NODE_ENV": "production",
     "PORT": "9091",
-    "MONGO_URI": "mongodb://mongo:27017/mealwise",
+    "MONGO_URI": "REPLACE_WITH_YOUR_MONGODB_ATLAS_SRV_URI",
     "JWT_SECRET": "REPLACE_WITH_YOUR_SECRET",
     "JWT_EXPIRE": "30d",
     "JWT_COOKIE_EXPIRE": "30",
