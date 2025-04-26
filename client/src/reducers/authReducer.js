@@ -12,7 +12,8 @@ import {
   UPDATE_PASSWORD_SUCCESS,
   UPDATE_PASSWORD_FAIL,
   UPLOAD_PROFILE_IMAGE_SUCCESS,
-  UPLOAD_PROFILE_IMAGE_FAIL
+  UPLOAD_PROFILE_IMAGE_FAIL,
+  AUTH_LOADING
 } from '../actions/types';
 
 const initialState = {
@@ -26,6 +27,12 @@ const initialState = {
 
 export default function(state = initialState, action) {
   switch (action.type) {
+    case AUTH_LOADING:
+      return {
+        ...state,
+        loading: true,
+        error: null
+      };
     case USER_LOADED:
       return {
         ...state,

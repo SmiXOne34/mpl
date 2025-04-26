@@ -12,7 +12,8 @@ import {
   UPDATE_PASSWORD_SUCCESS,
   UPDATE_PASSWORD_FAIL,
   UPLOAD_PROFILE_IMAGE_SUCCESS,
-  UPLOAD_PROFILE_IMAGE_FAIL
+  UPLOAD_PROFILE_IMAGE_FAIL,
+  AUTH_LOADING
 } from './types';
 import setAuthToken from '../utils/setAuthToken';
 import api from '../utils/api';
@@ -117,11 +118,14 @@ export const register = formData => async dispatch => {
 
 // Login User
 export const login = (email, password) => async dispatch => {
+  console.log('Login action called with email:', email);
+  
+  // Dispatch a loading action to show a spinner
+  dispatch({ type: AUTH_LOADING });
+  
+  // First, try using the standard API utility
   try {
-    console.log('Login action called with email:', email);
-    
-    // Use our api utility instead of axios directly
-    console.log('Making login request to /auth/login');
+    console.log('Making login request to /auth/login using api utility');
     const res = await api.post('/auth/login', { email, password });
     
     console.log('Login successful, response:', res.data);
@@ -139,85 +143,127 @@ export const login = (email, password) => async dispatch => {
 
     // Load user after successful login
     dispatch(loadUser());
+    return; // Exit early if successful
   } catch (err) {
-    console.error('Login failed:', err);
+    console.error('First login attempt failed:', err);
+    // Continue to fallback methods
+  }
+  
+  // Second attempt: Try using axios directly with absolute URL
+  try {
+    console.log('Making second login attempt with axios directly');
     
-    // More detailed error handling
-    let errorMessage = 'Invalid credentials';
-    
-    if (err.response) {
-      errorMessage = err.response.data?.error || `Server error: ${err.response.status}`;
-      console.error('Server response:', err.response.data);
-    } else if (err.request) {
-      errorMessage = 'No response from server. Please check your connection.';
-      console.error('No response received:', err.request);
-      console.error('Request details:', {
-        method: 'POST',
-        url: '/auth/login',
-        data: { email }
-      });
-      
-      // Add more diagnostic information
-      errorMessage += ' Server might be unavailable or CORS might be blocking the request.';
-    } else {
-      errorMessage = `Request error: ${err.message}`;
-      console.error('Error details:', err);
-    }
-    
-    // Get current API base URL for diagnostics
-    const currentBaseUrl = api.defaults.baseURL;
-    console.log('Current API base URL:', currentBaseUrl);
-    
-    // Try a fetch with absolute URL as a fallback
+    // Determine the API URL based on environment
     const apiUrl = process.env.NODE_ENV === 'production' 
       ? `${window.location.origin}/api/auth/login`
       : 'http://localhost:9091/api/auth/login';
       
-    console.log(`Testing connectivity with ${apiUrl}...`);
+    console.log(`Using direct axios with URL: ${apiUrl}`);
     
-    // Use fetch API as a fallback
-    fetch(apiUrl, {
+    const axiosResponse = await axios({
+      method: 'post',
+      url: apiUrl,
+      data: { email, password },
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+      withCredentials: true
+    });
+    
+    console.log('Second login attempt successful:', axiosResponse.data);
+    
+    dispatch({
+      type: LOGIN_SUCCESS,
+      payload: axiosResponse.data
+    });
+
+    // Initialize socket connection with the new token
+    if (axiosResponse.data && axiosResponse.data.token) {
+      console.log('Initializing socket connection after second login attempt');
+      initSocket(axiosResponse.data.token);
+    }
+
+    // Load user after successful login
+    dispatch(loadUser());
+    return; // Exit early if successful
+  } catch (err) {
+    console.error('Second login attempt failed:', err);
+    // Continue to final fallback
+  }
+  
+  // Final attempt: Try using fetch API as a last resort
+  try {
+    console.log('Making final login attempt with fetch API');
+    
+    // Determine the API URL based on environment
+    const apiUrl = process.env.NODE_ENV === 'production' 
+      ? `${window.location.origin}/api/auth/login`
+      : 'http://localhost:9091/api/auth/login';
+      
+    console.log(`Using fetch with URL: ${apiUrl}`);
+    
+    const fetchResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({ email, password }),
       credentials: 'include'
-    })
-    .then(response => {
-      console.log('Fetch test response status:', response.status);
-      if (response.ok) {
-        return response.json().then(data => {
-          console.log('Fetch test successful:', data);
-          
-          // If fetch succeeds but axios failed, use the fetch result
-          dispatch({
-            type: LOGIN_SUCCESS,
-            payload: data
-          });
-          
-          // Initialize socket connection with the new token
-          if (data && data.token) {
-            console.log('Initializing socket connection after fetch login');
-            initSocket(data.token);
-            
-            // Load user after successful login
-            dispatch(loadUser());
-          }
-        });
-      } else {
-        console.log('Fetch test failed with status:', response.status);
-        throw new Error(`Fetch failed with status ${response.status}`);
-      }
-    })
-    .catch(fetchErr => {
-      console.error('Fetch test error:', fetchErr);
+    });
+    
+    console.log('Fetch response status:', fetchResponse.status);
+    
+    if (!fetchResponse.ok) {
+      throw new Error(`Fetch failed with status ${fetchResponse.status}`);
+    }
+    
+    const data = await fetchResponse.json();
+    console.log('Fetch login successful:', data);
+    
+    dispatch({
+      type: LOGIN_SUCCESS,
+      payload: data
+    });
+    
+    // Initialize socket connection with the new token
+    if (data && data.token) {
+      console.log('Initializing socket connection after fetch login');
+      initSocket(data.token);
       
-      // Only dispatch LOGIN_FAIL if the fetch also failed
-      dispatch({
-        type: LOGIN_FAIL,
-        payload: errorMessage
-      });
+      // Load user after successful login
+      dispatch(loadUser());
+    }
+  } catch (err) {
+    console.error('All login attempts failed:', err);
+    
+    // Determine the most appropriate error message
+    let errorMessage = 'Login failed after multiple attempts. Please check your network connection and try again.';
+    
+    if (err.response) {
+      // The request was made and the server responded with a status code
+      // that falls out of the range of 2xx
+      errorMessage = err.response.data?.error || `Server error: ${err.response.status}`;
+    } else if (err.request) {
+      // The request was made but no response was received
+      errorMessage = 'No response from server. The server might be down or unreachable.';
+    } else if (err.message) {
+      // Something happened in setting up the request that triggered an Error
+      errorMessage = `Error: ${err.message}`;
+    }
+    
+    // Dispatch the final error
+    dispatch({
+      type: LOGIN_FAIL,
+      payload: errorMessage
+    });
+    
+    // Log diagnostic information
+    console.error('Login diagnostic information:', {
+      environment: process.env.NODE_ENV,
+      apiBaseUrl: api.defaults.baseURL,
+      browserLocation: window.location.href,
+      userAgent: navigator.userAgent
     });
   }
 };

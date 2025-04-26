@@ -86,37 +86,10 @@ app.use(mongoSanitize());
 
 // Enable CORS with configuration for both development and production
 const corsOptions = {
-  origin: function(origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, etc.)
-    if (!origin) return callback(null, true);
-    
-    // List of allowed origins
-    const allowedOrigins = [
-      'http://localhost:3000',                // Local development
-      'http://localhost:9091',                // Local backend
-      process.env.FRONTEND_URL,               // From env variable
-      process.env.CLIENT_URL,                 // From env variable
-      /\.dokploy\.com$/,                      // Dokploy domains
-      /\.vercel\.app$/                        // Vercel domains
-    ].filter(Boolean);
-    
-    // Check if the origin is allowed
-    const isAllowed = allowedOrigins.some(allowedOrigin => {
-      if (typeof allowedOrigin === 'string') {
-        return allowedOrigin === origin;
-      } else if (allowedOrigin instanceof RegExp) {
-        return allowedOrigin.test(origin);
-      }
-      return false;
-    });
-    
-    if (isAllowed) {
-      callback(null, true);
-    } else {
-      console.log(`CORS blocked request from origin: ${origin}`);
-      callback(new Error('Not allowed by CORS'));
-    }
-  },
+  // In production, allow all origins to prevent CORS issues
+  origin: process.env.NODE_ENV === 'production' 
+    ? true  // Allow all origins in production
+    : ['http://localhost:3000', 'http://localhost:9091'], // Restrict in development
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   exposedHeaders: ['Content-Length', 'X-Requested-With'],
