@@ -1,141 +1,492 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Test Login</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      max-width: 500px;
-      margin: 0 auto;
-      padding: 20px;
-    }
-    .form-group {
-      margin-bottom: 15px;
-    }
-    label {
-      display: block;
-      margin-bottom: 5px;
-    }
-    input {
-      width: 100%;
-      padding: 8px;
-      box-sizing: border-box;
-    }
-    button {
-      padding: 10px 15px;
-      background-color: #4caf50;
-      color: white;
-      border: none;
-      cursor: pointer;
-    }
-    #result {
-      margin-top: 20px;
-      padding: 10px;
-      border: 1px solid #ddd;
-      background-color: #f9f9f9;
-      min-height: 100px;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MealWise Login Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: #f9f9f9;
+            min-height: 100px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            overflow-x: auto;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab {
+            padding: 10px 15px;
+            background-color: #f1f1f1;
+            cursor: pointer;
+            border: 1px solid #ccc;
+            border-bottom: none;
+            border-radius: 4px 4px 0 0;
+            margin-right: 5px;
+        }
+        .tab.active {
+            background-color: #fff;
+            border-bottom: 1px solid white;
+            margin-bottom: -1px;
+            font-weight: bold;
+        }
+        .tab-content {
+            display: none;
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 0 4px 4px 4px;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .env-info {
+            background-color: #f8f8f8;
+            padding: 10px;
+            border-radius: 4px;
+            margin-bottom: 20px;
+            border-left: 4px solid #4caf50;
+        }
+    </style>
 </head>
 <body>
-  <h1>Test Login</h1>
-  
-  <div class="form-group">
-    <label for="email">Email:</label>
-    <input type="email" id="email" value="test123@example.com">
-  </div>
-  
-  <div class="form-group">
-    <label for="password">Password:</label>
-    <input type="password" id="password" value="password123">
-  </div>
-  
-  <button onclick="login()">Login</button>
-  
-  <div id="result">
-    <p>Results will appear here...</p>
-  </div>
-  
-  <script>
-    async function login() {
-      const email = document.getElementById('email').value;
-      const password = document.getElementById('password').value;
-      
-      const resultDiv = document.getElementById('result');
-      resultDiv.innerHTML = '<p>Sending request...</p>';
-      
-      try {
-        const response = await fetch('http://localhost:9090/api/auth/login', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email,
-            password,
-          }),
-          credentials: 'include'
-        });
-        
-        const data = await response.json();
-        
-        resultDiv.innerHTML = `
-          <h3>Response:</h3>
-          <pre>${JSON.stringify(data, null, 2)}</pre>
-        `;
-        
-        if (data.success) {
-          resultDiv.innerHTML += `
-            <p style="color: green;">Login successful!</p>
-            <p>Token: ${data.token}</p>
-          `;
-          
-          // Store token in localStorage
-          localStorage.setItem('token', data.token);
-          
-          // Test the /api/auth/me endpoint
-          testMe(data.token);
-        } else {
-          resultDiv.innerHTML += `
-            <p style="color: red;">Login failed: ${data.error || 'Unknown error'}</p>
-          `;
-        }
-      } catch (error) {
-        resultDiv.innerHTML = `
-          <h3>Error:</h3>
-          <pre>${error.message}</pre>
-        `;
-      }
-    }
+    <h1>MealWise Login Test Tool</h1>
     
-    async function testMe(token) {
-      const resultDiv = document.getElementById('result');
-      
-      try {
-        const response = await fetch('http://localhost:9090/api/auth/me', {
-          method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`
-          },
-          credentials: 'include'
+    <div class="env-info">
+        <p><strong>Current URL:</strong> <span id="currentUrl"></span></p>
+        <p><strong>API Base URL:</strong> <span id="apiBaseUrl"></span></p>
+    </div>
+    
+    <div class="tabs">
+        <div class="tab active" onclick="openTab(event, 'regularLogin')">Regular Login</div>
+        <div class="tab" onclick="openTab(event, 'testLogin')">Test Login</div>
+        <div class="tab" onclick="openTab(event, 'diagnostic')">Diagnostic</div>
+        <div class="tab" onclick="openTab(event, 'userInfo')">User Info</div>
+    </div>
+    
+    <div id="regularLogin" class="tab-content active">
+        <h2>Regular Login</h2>
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" value="test123@example.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" value="password123">
+        </div>
+        
+        <button onclick="regularLogin()">Login</button>
+        <button onclick="clearResult('regularResult')">Clear Results</button>
+        
+        <div id="regularResult" class="result">
+            <p>Results will appear here...</p>
+        </div>
+    </div>
+    
+    <div id="testLogin" class="tab-content">
+        <h2>Test Login (Debug Endpoint)</h2>
+        <p>This uses the special test endpoint that always succeeds.</p>
+        
+        <div class="form-group">
+            <label for="testEmail">Email:</label>
+            <input type="email" id="testEmail" value="test123@example.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="testPassword">Password:</label>
+            <input type="password" id="testPassword" value="password123">
+        </div>
+        
+        <button onclick="testLoginFunc()">Test Login</button>
+        <button onclick="clearResult('testResult')">Clear Results</button>
+        
+        <div id="testResult" class="result">
+            <p>Results will appear here...</p>
+        </div>
+    </div>
+    
+    <div id="diagnostic" class="tab-content">
+        <h2>Diagnostic Information</h2>
+        <p>Get server diagnostic information to help troubleshoot issues.</p>
+        
+        <button onclick="getDiagnostic()">Get Diagnostic Info</button>
+        <button onclick="getHealth()">Get Health Check</button>
+        <button onclick="clearResult('diagnosticResult')">Clear Results</button>
+        
+        <div id="diagnosticResult" class="result">
+            <p>Results will appear here...</p>
+        </div>
+    </div>
+    
+    <div id="userInfo" class="tab-content">
+        <h2>User Information</h2>
+        <p>Get current user information (requires authentication).</p>
+        
+        <div class="form-group">
+            <label for="authToken">Authentication Token:</label>
+            <input type="text" id="authToken" placeholder="Enter your JWT token">
+        </div>
+        
+        <button onclick="getUserInfo()">Get User Info</button>
+        <button onclick="clearResult('userResult')">Clear Results</button>
+        
+        <div id="userResult" class="result">
+            <p>Results will appear here...</p>
+        </div>
+    </div>
+    
+    <script>
+        // Get base URL from current location
+        const baseUrl = window.location.origin;
+        document.getElementById('currentUrl').textContent = window.location.href;
+        document.getElementById('apiBaseUrl').textContent = baseUrl + '/api';
+        
+        // Tab functionality
+        function openTab(evt, tabName) {
+            const tabContents = document.getElementsByClassName("tab-content");
+            for (let i = 0; i < tabContents.length; i++) {
+                tabContents[i].classList.remove("active");
+            }
+            
+            const tabs = document.getElementsByClassName("tab");
+            for (let i = 0; i < tabs.length; i++) {
+                tabs[i].classList.remove("active");
+            }
+            
+            document.getElementById(tabName).classList.add("active");
+            evt.currentTarget.classList.add("active");
+        }
+        
+        // Clear result
+        function clearResult(resultId) {
+            document.getElementById(resultId).innerHTML = '<p>Results will appear here...</p>';
+        }
+        
+        // Regular login
+        async function regularLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const resultDiv = document.getElementById('regularResult');
+            resultDiv.innerHTML = '<p>Sending request...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                    }),
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Response (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">Login successful!</p>
+                            <p>Token: ${data.token}</p>
+                        `;
+                        
+                        // Store token in localStorage
+                        localStorage.setItem('token', data.token);
+                        document.getElementById('authToken').value = data.token;
+                        
+                        // Automatically switch to user info tab
+                        document.querySelector('.tab:nth-child(4)').click();
+                        getUserInfo();
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Login failed: ${data.error || 'Unknown error'}</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                    <p>This could indicate a CORS issue or that the server is not reachable.</p>
+                `;
+            }
+        }
+        
+        // Test login
+        async function testLoginFunc() {
+            const email = document.getElementById('testEmail').value;
+            const password = document.getElementById('testPassword').value;
+            
+            const resultDiv = document.getElementById('testResult');
+            resultDiv.innerHTML = '<p>Sending request to test endpoint...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/auth/test-login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                    }),
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Response (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">Test login successful!</p>
+                            <p>This confirms the server is receiving and processing requests.</p>
+                        `;
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Test login failed: ${data.error || 'Unknown error'}</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                    <p>This could indicate a CORS issue or that the server is not reachable.</p>
+                `;
+            }
+        }
+        
+        // Get diagnostic info
+        async function getDiagnostic() {
+            const resultDiv = document.getElementById('diagnosticResult');
+            resultDiv.innerHTML = '<p>Fetching diagnostic information...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/diagnostic`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Diagnostic Information (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                `;
+            }
+        }
+        
+        // Get health check
+        async function getHealth() {
+            const resultDiv = document.getElementById('diagnosticResult');
+            resultDiv.innerHTML = '<p>Checking server health...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Health Check (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (response.ok) {
+                        resultDiv.innerHTML += `
+                            <p class="success">Server is healthy!</p>
+                        `;
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Server health check failed.</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                `;
+            }
+        }
+        
+        // Get user info
+        async function getUserInfo() {
+            const token = document.getElementById('authToken').value || localStorage.getItem('token');
+            
+            if (!token) {
+                document.getElementById('userResult').innerHTML = `
+                    <p class="error">No authentication token found. Please login first or enter a token manually.</p>
+                `;
+                return;
+            }
+            
+            const resultDiv = document.getElementById('userResult');
+            resultDiv.innerHTML = '<p>Fetching user information...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/auth/me`, {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>User Information (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">Successfully retrieved user information!</p>
+                        `;
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Failed to get user information: ${data.error || 'Unknown error'}</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                `;
+            }
+        }
+        
+        // Check for token in localStorage on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            const token = localStorage.getItem('token');
+            if (token) {
+                document.getElementById('authToken').value = token;
+            }
         });
-        
-        const data = await response.json();
-        
-        resultDiv.innerHTML += `
-          <h3>User Data:</h3>
-          <pre>${JSON.stringify(data, null, 2)}</pre>
-        `;
-      } catch (error) {
-        resultDiv.innerHTML += `
-          <h3>Error fetching user data:</h3>
-          <pre>${error.message}</pre>
-        `;
-      }
-    }
-  </script>
+    </script>
 </body>
 </html>
