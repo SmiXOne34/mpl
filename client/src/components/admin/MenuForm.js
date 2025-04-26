@@ -116,10 +116,11 @@ const MenuForm = ({
     days: Array(7).fill().map(() => ({ meals: [] }))
   });
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [selectedMeal, setSelectedMeal] = useState(null);
+  const [selectedMeals, setSelectedMeals] = useState([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
   const [success, setSuccess] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   // Load initial data
   useEffect(() => {
@@ -145,18 +146,23 @@ const MenuForm = ({
 
   const handleOpenDialog = () => {
     setDialogOpen(true);
-    setSelectedMeal(null);
+    setSelectedMeals([]);
+    setSearchTerm('');
   };
 
   const handleCloseDialog = () => {
     setDialogOpen(false);
-    setSelectedMeal(null);
+    setSelectedMeals([]);
+    setSearchTerm('');
   };
 
   const handleAddMeal = () => {
-    if (!selectedMeal) return;
+    if (selectedMeals.length === 0) {
+      setError('Please select at least one meal');
+      return;
+    }
     
-    console.log('Adding meal to menu:', selectedMeal);
+    console.log('Adding meals to menu:', selectedMeals);
     console.log('Current menuData:', menuData);
     
     // Ensure the days array has enough elements
@@ -175,20 +181,26 @@ const MenuForm = ({
       updatedDays[selectedDay].meals = [];
     }
     
-    // Check if meal is already in the day's menu
-    if (updatedDays[selectedDay].meals.some(meal => {
-      const mealId = typeof meal === 'object' ? meal._id : meal;
+    // Get existing meal IDs for comparison
+    const existingMealIds = updatedDays[selectedDay].meals.map(meal => 
+      typeof meal === 'object' ? meal._id : meal
+    );
+    
+    // Filter out meals that are already in the day's menu
+    const newMeals = selectedMeals.filter(selectedMeal => {
       const selectedId = typeof selectedMeal === 'object' ? selectedMeal._id : selectedMeal;
-      return mealId === selectedId;
-    })) {
-      setError('This meal is already in the menu for this day');
+      return !existingMealIds.includes(selectedId);
+    });
+    
+    if (newMeals.length === 0) {
+      setError('All selected meals are already in the menu for this day');
       return;
     }
     
-    // Add the full meal object to the day's menu for display purposes
+    // Add the full meal objects to the day's menu for display purposes
     updatedDays[selectedDay] = {
       ...updatedDays[selectedDay],
-      meals: [...updatedDays[selectedDay].meals, selectedMeal]
+      meals: [...updatedDays[selectedDay].meals, ...newMeals]
     };
     
     console.log('Updated days array:', updatedDays);
@@ -200,6 +212,16 @@ const MenuForm = ({
     
     // Clear any previous errors
     setError(null);
+    
+    // Show success message
+    const addedCount = newMeals.length;
+    const skippedCount = selectedMeals.length - addedCount;
+    
+    if (skippedCount > 0) {
+      console.log(`Added ${addedCount} meals, skipped ${skippedCount} that were already in the menu`);
+    } else {
+      console.log(`Added ${addedCount} meals to the menu`);
+    }
     
     handleCloseDialog();
   };
@@ -585,38 +607,254 @@ const MenuForm = ({
       </Paper>
       
       {/* Add Meal Dialog */}
-      <Dialog open={dialogOpen} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>Add Meal to {getDayName(selectedDay)}</DialogTitle>
-        <DialogContent>
+      <Dialog 
+        open={dialogOpen} 
+        onClose={handleCloseDialog} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          style: {
+            maxHeight: '80vh',
+          },
+        }}
+      >
+        <DialogTitle>
+          <Box display="flex" justifyContent="space-between" alignItems="center">
+            <Typography variant="h6">Select Meals for {getDayName(selectedDay)}</Typography>
+            <TextField
+              placeholder="Search meals..."
+              variant="outlined"
+              size="small"
+              InputProps={{
+                startAdornment: (
+                  <Box component="span" mr={1}>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="8"></circle>
+                      <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                  </Box>
+                ),
+              }}
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                console.log('Search term:', e.target.value);
+              }}
+            />
+          </Box>
+          
+          {/* Selection controls */}
+          <Box display="flex" justifyContent="flex-end" mt={2}>
+            <Button 
+              size="small" 
+              color="primary"
+              onClick={() => {
+                // Get filtered meals based on search term
+                const filteredMeals = meals.filter(meal => {
+                  if (!searchTerm) return true;
+                  const term = searchTerm.toLowerCase();
+                  return (
+                    meal.name.toLowerCase().includes(term) ||
+                    (meal.description && meal.description.toLowerCase().includes(term)) ||
+                    (meal.tags && meal.tags.some(tag => tag.toLowerCase().includes(term)))
+                  );
+                });
+                
+                // If all filtered meals are selected, deselect all
+                // Otherwise, select all filtered meals
+                const allSelected = filteredMeals.every(meal => 
+                  selectedMeals.some(selected => selected._id === meal._id)
+                );
+                
+                if (allSelected) {
+                  // Deselect all filtered meals
+                  setSelectedMeals(selectedMeals.filter(selected => 
+                    !filteredMeals.some(meal => meal._id === selected._id)
+                  ));
+                } else {
+                  // Select all filtered meals that aren't already selected
+                  const newSelections = filteredMeals.filter(meal => 
+                    !selectedMeals.some(selected => selected._id === meal._id)
+                  );
+                  setSelectedMeals([...selectedMeals, ...newSelections]);
+                }
+              }}
+            >
+              {meals.filter(meal => {
+                if (!searchTerm) return true;
+                const term = searchTerm.toLowerCase();
+                return (
+                  meal.name.toLowerCase().includes(term) ||
+                  (meal.description && meal.description.toLowerCase().includes(term)) ||
+                  (meal.tags && meal.tags.some(tag => tag.toLowerCase().includes(term)))
+                );
+              }).every(meal => 
+                selectedMeals.some(selected => selected._id === meal._id)
+              ) ? 'Deselect All' : 'Select All'}
+            </Button>
+            
+            {selectedMeals.length > 0 && (
+              <Button 
+                size="small" 
+                color="secondary"
+                onClick={() => setSelectedMeals([])}
+                style={{ marginLeft: 8 }}
+              >
+                Clear Selection
+              </Button>
+            )}
+          </Box>
+        </DialogTitle>
+        <DialogContent dividers>
           {meals && meals.length > 0 ? (
-            <Autocomplete
-              options={meals}
-              getOptionLabel={(option) => option.name}
-              renderOption={(option) => (
-                <Box display="flex" alignItems="center">
-                  <RestaurantMenu style={{ marginRight: 8 }} />
-                  <Box>
-                    <Typography variant="body1">{option.name}</Typography>
-                    <Typography variant="body2" color="textSecondary">
-                      {option.tags.join(', ')}
+            <Grid container spacing={2}>
+              {meals
+                .filter(meal => {
+                  if (!searchTerm) return true;
+                  const term = searchTerm.toLowerCase();
+                  return (
+                    meal.name.toLowerCase().includes(term) ||
+                    (meal.description && meal.description.toLowerCase().includes(term)) ||
+                    (meal.tags && meal.tags.some(tag => tag.toLowerCase().includes(term)))
+                  );
+                })
+                .map((meal) => (
+                <Grid item xs={12} sm={6} md={4} key={meal._id}>
+                  <Paper 
+                    elevation={selectedMeals.some(selected => selected._id === meal._id) ? 8 : 1}
+                    style={{ 
+                      cursor: 'pointer',
+                      border: selectedMeals.some(selected => selected._id === meal._id) ? '2px solid #4caf50' : '1px solid #e0e0e0',
+                      boxShadow: selectedMeals.some(selected => selected._id === meal._id) ? '0 4px 10px rgba(76, 175, 80, 0.5)' : 'none',
+                      height: '100%',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      transition: 'all 0.2s ease'
+                    }}
+                    onClick={() => {
+                      // Toggle selection
+                      if (selectedMeals.some(selected => selected._id === meal._id)) {
+                        // If already selected, remove it
+                        setSelectedMeals(selectedMeals.filter(selected => selected._id !== meal._id));
+                      } else {
+                        // If not selected, add it
+                        setSelectedMeals([...selectedMeals, meal]);
+                      }
+                      setError(null);
+                    }}
+                  >
+                    <Box 
+                      style={{ 
+                        height: 140, 
+                        overflow: 'hidden',
+                        position: 'relative',
+                        backgroundColor: '#f5f5f5'
+                      }}
+                    >
+                      {/* Selection indicator */}
+                      {selectedMeals.some(selected => selected._id === meal._id) && (
+                        <Box
+                          style={{
+                            position: 'absolute',
+                            top: 10,
+                            right: 10,
+                            zIndex: 2,
+                            backgroundColor: '#4caf50',
+                            borderRadius: '50%',
+                            width: 24,
+                            height: 24,
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            color: 'white',
+                            boxShadow: '0 2px 4px rgba(0,0,0,0.2)'
+                          }}
+                        >
+                          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                          </svg>
+                        </Box>
+                      )}
+                      {meal.imageUrl ? (
+                        <img 
+                          src={meal.imageUrl} 
+                          alt={meal.name}
+                          style={{ 
+                            width: '100%', 
+                            height: '100%', 
+                            objectFit: 'cover'
+                          }}
+                        />
+                      ) : (
+                        <Box 
+                          display="flex" 
+                          alignItems="center" 
+                          justifyContent="center" 
+                          height="100%"
+                        >
+                          <RestaurantMenu style={{ fontSize: 60, color: '#bdbdbd' }} />
+                        </Box>
+                      )}
+                    </Box>
+                    <Box p={2} style={{ flexGrow: 1 }}>
+                      <Typography variant="h6" gutterBottom noWrap>
+                        {meal.name}
+                      </Typography>
+                      <Typography 
+                        variant="body2" 
+                        color="textSecondary" 
+                        style={{
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          marginBottom: 8
+                        }}
+                      >
+                        {meal.description}
+                      </Typography>
+                      <Box mt={1}>
+                        {meal.tags && meal.tags.slice(0, 3).map((tag) => (
+                          <Chip
+                            key={tag}
+                            label={tag}
+                            size="small"
+                            style={{ margin: '0 4px 4px 0' }}
+                          />
+                        ))}
+                        {meal.tags && meal.tags.length > 3 && (
+                          <Chip
+                            label={`+${meal.tags.length - 3}`}
+                            size="small"
+                            style={{ margin: '0 4px 4px 0' }}
+                          />
+                        )}
+                      </Box>
+                    </Box>
+                  </Paper>
+                </Grid>
+              ))}
+              
+              {/* Show a message when no meals match the search */}
+              {meals.filter(meal => {
+                if (!searchTerm) return true;
+                const term = searchTerm.toLowerCase();
+                return (
+                  meal.name.toLowerCase().includes(term) ||
+                  (meal.description && meal.description.toLowerCase().includes(term)) ||
+                  (meal.tags && meal.tags.some(tag => tag.toLowerCase().includes(term)))
+                );
+              }).length === 0 && (
+                <Grid item xs={12}>
+                  <Box p={4} textAlign="center">
+                    <Typography variant="body1" color="textSecondary">
+                      No meals match your search. Try different keywords.
                     </Typography>
                   </Box>
-                </Box>
+                </Grid>
               )}
-              onChange={(event, newValue) => {
-                setSelectedMeal(newValue);
-                setError(null);
-              }}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Select Meal"
-                  variant="outlined"
-                  fullWidth
-                  margin="normal"
-                />
-              )}
-            />
+            </Grid>
           ) : (
             <Alert severity="warning">
               No meals available. Please create meals first.
@@ -624,6 +862,13 @@ const MenuForm = ({
           )}
         </DialogContent>
         <DialogActions>
+          <Box flexGrow={1} pl={2}>
+            {selectedMeals.length > 0 && (
+              <Typography variant="body2" color="textSecondary">
+                {selectedMeals.length} meal{selectedMeals.length !== 1 ? 's' : ''} selected
+              </Typography>
+            )}
+          </Box>
           <Button onClick={handleCloseDialog} color="primary">
             Cancel
           </Button>
@@ -631,9 +876,10 @@ const MenuForm = ({
             onClick={handleAddMeal}
             color="primary"
             variant="contained"
-            disabled={!selectedMeal}
+            disabled={selectedMeals.length === 0}
+            startIcon={<AddIcon />}
           >
-            Add to Menu
+            Add {selectedMeals.length > 0 ? `${selectedMeals.length} ` : ''}to Menu
           </Button>
         </DialogActions>
       </Dialog>
