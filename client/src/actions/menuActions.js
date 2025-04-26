@@ -79,11 +79,22 @@ export const getMenuByWeek = weekId => async dispatch => {
 // Create new weekly menu
 export const createMenu = menuData => async dispatch => {
   try {
-    console.log('Creating menu with data:', menuData);
+    console.log('Creating menu with data:', JSON.stringify(menuData, null, 2));
     dispatch({ type: SET_LOADING });
 
+    // Log the request URL and headers
+    console.log('Making POST request to:', '/menu');
+    console.log('Request headers:', api.defaults.headers);
+    
     const res = await api.post('/menu', menuData);
-    console.log('Create menu response:', res.data);
+    console.log('Create menu response status:', res.status);
+    console.log('Create menu response headers:', res.headers);
+    console.log('Create menu response data:', JSON.stringify(res.data, null, 2));
+
+    if (!res.data || !res.data.success) {
+      console.error('API returned success: false or no data');
+      throw new Error('API returned unsuccessful response');
+    }
 
     dispatch({
       type: CREATE_MENU,
@@ -96,11 +107,24 @@ export const createMenu = menuData => async dispatch => {
     
     let errorMessage = 'Error creating menu';
     if (err.response) {
-      errorMessage = err.response.data?.error || `Server error: ${err.response.status}`;
-      console.error('Server response:', err.response.data);
+      errorMessage = err.response.data?.error || err.response.data?.message || `Server error: ${err.response.status}`;
+      console.error('Server response details:', {
+        status: err.response.status,
+        statusText: err.response.statusText,
+        data: JSON.stringify(err.response.data, null, 2),
+        headers: err.response.headers,
+        url: err.response.config?.url,
+        method: err.response.config?.method,
+        requestData: err.response.config?.data
+      });
     } else if (err.request) {
       errorMessage = 'No response from server. Please check your connection.';
-      console.error('No response received:', err.request);
+      console.error('No response received:', {
+        request: err.request,
+        url: err.config?.url,
+        method: err.config?.method,
+        data: err.config?.data
+      });
     } else {
       errorMessage = `Request error: ${err.message}`;
     }

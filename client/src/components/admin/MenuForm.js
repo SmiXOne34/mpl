@@ -371,8 +371,15 @@ const MenuForm = ({
     saveMenu()
       .then(result => {
         console.log('Menu saved successfully:', result);
+        console.log('Menu saved with ID:', result?._id);
+        console.log('Menu saved with weekId:', result?.weekId);
+        console.log('Full result object:', JSON.stringify(result, null, 2));
+        
         clearTimeout(safetyTimeout);
         setSuccess(true);
+        
+        // Force a refresh of the weekly menu data
+        getWeeklyMenu();
         
         // Only redirect if the user explicitly clicked the save button
         // Don't redirect after adding a meal

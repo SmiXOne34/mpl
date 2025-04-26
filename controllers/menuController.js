@@ -75,82 +75,95 @@ exports.getMenuByWeek = asyncHandler(async (req, res, next) => {
  */
 exports.createMenu = asyncHandler(async (req, res, next) => {
   console.log('Creating menu with data:', JSON.stringify(req.body, null, 2));
+  console.log('User ID:', req.user.id);
   
-  // Add user to req.body
-  req.body.createdBy = req.user.id;
-
-  // Generate weekId if not provided
-  if (!req.body.weekId && req.body.weekNumber && req.body.year) {
-    const weekNum = req.body.weekNumber.toString().padStart(2, '0');
-    req.body.weekId = `${req.body.year}-${weekNum}`;
-  }
-
-  // Check if menu already exists for this week
-  let existingMenu;
-  if (req.body.weekId) {
-    existingMenu = await WeeklyMenu.findOne({ weekId: req.body.weekId });
-  } else if (req.body.weekNumber && req.body.year) {
-    existingMenu = await WeeklyMenu.findOne({ 
-      weekNumber: req.body.weekNumber, 
-      year: req.body.year 
-    });
-  }
-
-  if (existingMenu) {
-    return next(
-      new ErrorResponse(`Menu already exists for week ${req.body.weekId || `${req.body.year}-${req.body.weekNumber}`}`, 400)
-    );
-  }
-
-  // Ensure days array is properly formatted
-  if (req.body.days) {
-    console.log('Days before processing:', JSON.stringify(req.body.days, null, 2));
-    
-    // Make sure each day's meals array contains valid meal IDs
-    for (let i = 0; i < req.body.days.length; i++) {
-      const day = req.body.days[i];
-      if (day && day.meals) {
-        // Ensure all meal IDs are strings
-        day.meals = day.meals.map(meal => {
-          if (typeof meal === 'object' && meal._id) {
-            return meal._id;
-          }
-          return meal;
-        });
+  try {
+    // Add user to req.body
+    req.body.createdBy = req.user.id;
+  
+    // Generate weekId if not provided
+    if (!req.body.weekId && req.body.weekNumber && req.body.year) {
+      const weekNum = req.body.weekNumber.toString().padStart(2, '0');
+      req.body.weekId = `${req.body.year}-${weekNum}`;
+    }
+  
+    console.log('Generated weekId:', req.body.weekId);
+  
+    // Check if menu already exists for this week
+    let existingMenu;
+    if (req.body.weekId) {
+      existingMenu = await WeeklyMenu.findOne({ weekId: req.body.weekId });
+    } else if (req.body.weekNumber && req.body.year) {
+      existingMenu = await WeeklyMenu.findOne({ 
+        weekNumber: req.body.weekNumber, 
+        year: req.body.year 
+      });
+    }
+  
+    if (existingMenu) {
+      console.log('Menu already exists:', existingMenu._id);
+      return next(
+        new ErrorResponse(`Menu already exists for week ${req.body.weekId || `${req.body.year}-${req.body.weekNumber}`}`, 400)
+      );
+    }
+  
+    // Ensure days array is properly formatted
+    if (req.body.days) {
+      console.log('Days before processing:', JSON.stringify(req.body.days, null, 2));
+      
+      // Make sure each day's meals array contains valid meal IDs
+      for (let i = 0; i < req.body.days.length; i++) {
+        const day = req.body.days[i];
+        if (day && day.meals) {
+          // Ensure all meal IDs are strings
+          day.meals = day.meals.map(meal => {
+            if (typeof meal === 'object' && meal._id) {
+              return meal._id;
+            }
+            return meal;
+          });
+        }
       }
+      
+      console.log('Days after processing:', JSON.stringify(req.body.days, null, 2));
     }
+  
+    // Create the menu
+    console.log('Creating menu with processed data:', JSON.stringify(req.body, null, 2));
+    const menu = await WeeklyMenu.create(req.body);
     
-    console.log('Days after processing:', JSON.stringify(req.body.days, null, 2));
-  }
-
-  // Create the menu
-  const menu = await WeeklyMenu.create(req.body);
+    console.log('Menu created successfully with ID:', menu._id);
+    console.log('Menu after creation:', JSON.stringify(menu, null, 2));
   
-  console.log('Menu after creation:', JSON.stringify(menu, null, 2));
-
-  // Populate the menu
-  await menu.populate([
-    {
-      path: 'days.meals',
-      select: 'name description imageUrl tags'
-    },
-    {
-      path: 'createdBy',
-      select: 'name'
+    // Populate the menu
+    await menu.populate([
+      {
+        path: 'days.meals',
+        select: 'name description imageUrl tags'
+      },
+      {
+        path: 'createdBy',
+        select: 'name'
+      }
+    ]);
+    
+    console.log('Menu after population:', JSON.stringify(menu, null, 2));
+  
+    // Emit socket event for real-time updates
+    if (req.io) {
+      console.log('Emitting menu:created event');
+      req.io.emit('menu:created', menu);
     }
-  ]);
   
-  console.log('Menu after population:', JSON.stringify(menu, null, 2));
-
-  // Emit socket event for real-time updates
-  if (req.io) {
-    req.io.emit('menu:created', menu);
+    console.log('Sending success response');
+    res.status(201).json({
+      success: true,
+      data: menu
+    });
+  } catch (error) {
+    console.error('Error in createMenu controller:', error);
+    return next(new ErrorResponse(`Error creating menu: ${error.message}`, 500));
   }
-
-  res.status(201).json({
-    success: true,
-    data: menu
-  });
 });
 
 /**
@@ -161,66 +174,79 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
 exports.updateMenu = asyncHandler(async (req, res, next) => {
   const { weekId } = req.params;
   console.log('Updating menu for week:', weekId, 'with data:', JSON.stringify(req.body, null, 2));
+  console.log('User ID:', req.user.id);
 
-  let menu = await WeeklyMenu.findOne({ weekId });
-
-  if (!menu) {
-    return next(
-      new ErrorResponse(`No menu found for week ${weekId}`, 404)
-    );
-  }
-
-  // Ensure days array is properly formatted
-  if (req.body.days) {
-    console.log('Days before processing:', JSON.stringify(req.body.days, null, 2));
-    
-    // Make sure each day's meals array contains valid meal IDs
-    for (let i = 0; i < req.body.days.length; i++) {
-      const day = req.body.days[i];
-      if (day && day.meals) {
-        // Ensure all meal IDs are strings
-        day.meals = day.meals.map(meal => {
-          if (typeof meal === 'object' && meal._id) {
-            return meal._id;
-          }
-          return meal;
-        });
+  try {
+    let menu = await WeeklyMenu.findOne({ weekId });
+  
+    if (!menu) {
+      return next(
+        new ErrorResponse(`No menu found for week ${weekId}`, 404)
+      );
+    }
+  
+    console.log('Found existing menu with ID:', menu._id);
+  
+    // Ensure days array is properly formatted
+    if (req.body.days) {
+      console.log('Days before processing:', JSON.stringify(req.body.days, null, 2));
+      
+      // Make sure each day's meals array contains valid meal IDs
+      for (let i = 0; i < req.body.days.length; i++) {
+        const day = req.body.days[i];
+        if (day && day.meals) {
+          // Ensure all meal IDs are strings
+          day.meals = day.meals.map(meal => {
+            if (typeof meal === 'object' && meal._id) {
+              return meal._id;
+            }
+            return meal;
+          });
+        }
       }
+      
+      console.log('Days after processing:', JSON.stringify(req.body.days, null, 2));
     }
-    
-    console.log('Days after processing:', JSON.stringify(req.body.days, null, 2));
-  }
-
-  menu = await WeeklyMenu.findOneAndUpdate({ weekId }, req.body, {
-    new: true,
-    runValidators: true
-  });
-
-  console.log('Menu after update:', JSON.stringify(menu, null, 2));
-
-  // Populate the menu
-  await menu.populate([
-    {
-      path: 'days.meals',
-      select: 'name description imageUrl tags'
-    },
-    {
-      path: 'createdBy',
-      select: 'name'
+  
+    // Update the menu
+    console.log('Updating menu with processed data');
+    menu = await WeeklyMenu.findOneAndUpdate({ weekId }, req.body, {
+      new: true,
+      runValidators: true
+    });
+  
+    console.log('Menu updated successfully with ID:', menu._id);
+    console.log('Menu after update:', JSON.stringify(menu, null, 2));
+  
+    // Populate the menu
+    await menu.populate([
+      {
+        path: 'days.meals',
+        select: 'name description imageUrl tags'
+      },
+      {
+        path: 'createdBy',
+        select: 'name'
+      }
+    ]);
+  
+    console.log('Menu after population:', JSON.stringify(menu, null, 2));
+  
+    // Emit socket event for real-time updates
+    if (req.io) {
+      console.log('Emitting menu:updated event');
+      req.io.emit('menu:updated', menu);
     }
-  ]);
-
-  console.log('Menu after population:', JSON.stringify(menu, null, 2));
-
-  // Emit socket event for real-time updates
-  if (req.io) {
-    req.io.emit('menu:updated', menu);
+  
+    console.log('Sending success response');
+    res.status(200).json({
+      success: true,
+      data: menu
+    });
+  } catch (error) {
+    console.error('Error in updateMenu controller:', error);
+    return next(new ErrorResponse(`Error updating menu: ${error.message}`, 500));
   }
-
-  res.status(200).json({
-    success: true,
-    data: menu
-  });
 });
 
 /**
