@@ -26,6 +26,7 @@ const setupSocket = require('./utils/socket');
 
 // Import route files
 const authRoutes = require('./routes/auth');
+const directAuthRoutes = require('./routes/direct-auth');
 const userRoutes = require('./routes/users');
 const mealRoutes = require('./routes/meals');
 const menuRoutes = require('./routes/menu');
@@ -84,23 +85,39 @@ app.use(hpp());
 // Sanitize data
 app.use(mongoSanitize());
 
-// Enable CORS with configuration for both development and production
-const corsOptions = {
-  // In production, allow all origins to prevent CORS issues
-  origin: process.env.NODE_ENV === 'production' 
-    ? true  // Allow all origins in production
-    : ['http://localhost:3000', 'http://localhost:9091'], // Restrict in development
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
+// Enable CORS with the most permissive configuration possible
+app.use((req, res, next) => {
+  // Allow requests from any origin
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  
+  // Allow credentials
+  res.header('Access-Control-Allow-Credentials', 'true');
+  
+  // Allow all common headers
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control, Pragma');
+  
+  // Allow all methods
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  
+  // Handle preflight requests
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
+  }
+  
+  next();
+});
+
+// Also apply the cors middleware as a fallback
+app.use(cors({
+  origin: true, // Allow all origins
+  credentials: true, // Allow credentials
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: ['Origin', 'X-Requested-With', 'Content-Type', 'Accept', 'Authorization', 'Cache-Control', 'Pragma'],
   exposedHeaders: ['Content-Length', 'X-Requested-With'],
-  credentials: true, // Include credentials for cross-origin requests
   preflightContinue: false,
   optionsSuccessStatus: 200,
   maxAge: 86400 // 24 hours
-};
-
-// Apply CORS middleware
-app.use(cors(corsOptions));
+}));
 
 // Create logs directory if it doesn't exist
 const fs = require('fs');
@@ -204,6 +221,7 @@ app.get('/api/diagnostic', (req, res) => {
 
 // Mount routers
 app.use('/api/auth', authRoutes);
+app.use('/api/direct-auth', directAuthRoutes); // Direct auth routes for emergency access
 app.use('/api/users', userRoutes);
 app.use('/api/meals', mealRoutes);
 app.use('/api/menu', menuRoutes);

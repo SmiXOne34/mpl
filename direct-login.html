@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MealWise Direct Login</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            border: 1px solid #ccc;
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            background-color: #f9f9f9;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input {
+            width: 100%;
+            padding: 8px;
+            box-sizing: border-box;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background-color: white;
+            min-height: 100px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+        }
+        .success {
+            color: green;
+            font-weight: bold;
+        }
+        .error {
+            color: red;
+            font-weight: bold;
+        }
+        .warning {
+            background-color: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 10px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4caf50;
+            padding-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <h1>MealWise Direct Login</h1>
+    
+    <div class="warning">
+        <p><strong>Note:</strong> This is an emergency login page that bypasses the regular authentication flow. Use only for troubleshooting.</p>
+    </div>
+    
+    <div class="container">
+        <h2>Direct Login</h2>
+        <div class="form-group">
+            <label for="email">Email:</label>
+            <input type="email" id="email" value="test123@example.com">
+        </div>
+        
+        <div class="form-group">
+            <label for="password">Password:</label>
+            <input type="password" id="password" value="password123">
+        </div>
+        
+        <button onclick="directLogin()">Login</button>
+        <button onclick="clearResult()" style="background-color: #f44336;">Clear</button>
+        
+        <div id="result" class="result">
+            <p>Results will appear here...</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>Emergency Token Generation</h2>
+        <p>For admin use only. Requires the emergency admin key.</p>
+        
+        <div class="form-group">
+            <label for="emergencyEmail">Email:</label>
+            <input type="email" id="emergencyEmail" placeholder="User email">
+        </div>
+        
+        <div class="form-group">
+            <label for="adminKey">Admin Key:</label>
+            <input type="password" id="adminKey" placeholder="Emergency admin key">
+        </div>
+        
+        <button onclick="generateEmergencyToken()">Generate Token</button>
+        <button onclick="clearEmergencyResult()" style="background-color: #f44336;">Clear</button>
+        
+        <div id="emergencyResult" class="result">
+            <p>Results will appear here...</p>
+        </div>
+    </div>
+    
+    <div class="container">
+        <h2>Health Check</h2>
+        <button onclick="checkHealth()">Check Direct Auth Health</button>
+        <div id="healthResult" class="result">
+            <p>Results will appear here...</p>
+        </div>
+    </div>
+    
+    <script>
+        // Get base URL from current location
+        const baseUrl = window.location.origin;
+        
+        // Direct login
+        async function directLogin() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<p>Sending request...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/direct-auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email,
+                        password,
+                    }),
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Response (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">Login successful!</p>
+                            <p>Token: ${data.token}</p>
+                        `;
+                        
+                        // Store token in localStorage
+                        localStorage.setItem('token', data.token);
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Login failed: ${data.error || 'Unknown error'}</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                    <p>This could indicate a CORS issue or that the server is not reachable.</p>
+                `;
+            }
+        }
+        
+        // Generate emergency token
+        async function generateEmergencyToken() {
+            const email = document.getElementById('emergencyEmail').value;
+            const adminKey = document.getElementById('adminKey').value;
+            
+            const resultDiv = document.getElementById('emergencyResult');
+            resultDiv.innerHTML = '<p>Sending request...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/direct-auth/emergency-token`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email,
+                        adminKey,
+                    }),
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Response (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">Emergency token generated!</p>
+                            <p>Token: ${data.token}</p>
+                        `;
+                        
+                        // Store token in localStorage
+                        localStorage.setItem('token', data.token);
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Failed: ${data.error || 'Unknown error'}</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                    <p>This could indicate a CORS issue or that the server is not reachable.</p>
+                `;
+            }
+        }
+        
+        // Check health
+        async function checkHealth() {
+            const resultDiv = document.getElementById('healthResult');
+            resultDiv.innerHTML = '<p>Checking health...</p>';
+            
+            try {
+                const response = await fetch(`${baseUrl}/api/direct-auth/health`, {
+                    method: 'GET',
+                    headers: {
+                        'Accept': 'application/json',
+                    },
+                    credentials: 'include'
+                });
+                
+                let responseText;
+                try {
+                    responseText = await response.text();
+                    const data = JSON.parse(responseText);
+                    
+                    resultDiv.innerHTML = `
+                        <h3>Health Check (Status: ${response.status}):</h3>
+                        <pre>${JSON.stringify(data, null, 2)}</pre>
+                    `;
+                    
+                    if (data.success) {
+                        resultDiv.innerHTML += `
+                            <p class="success">Direct auth service is healthy!</p>
+                        `;
+                    } else {
+                        resultDiv.innerHTML += `
+                            <p class="error">Health check failed.</p>
+                        `;
+                    }
+                } catch (parseError) {
+                    resultDiv.innerHTML = `
+                        <h3>Error parsing JSON response (Status: ${response.status}):</h3>
+                        <pre>${responseText}</pre>
+                        <p class="error">${parseError.message}</p>
+                    `;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3>Network Error:</h3>
+                    <p class="error">${error.message}</p>
+                    <p>This could indicate a CORS issue or that the server is not reachable.</p>
+                `;
+            }
+        }
+        
+        // Clear result
+        function clearResult() {
+            document.getElementById('result').innerHTML = '<p>Results will appear here...</p>';
+        }
+        
+        // Clear emergency result
+        function clearEmergencyResult() {
+            document.getElementById('emergencyResult').innerHTML = '<p>Results will appear here...</p>';
+        }
+    </script>
+</body>
+</html>
