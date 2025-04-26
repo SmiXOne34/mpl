@@ -78,62 +78,104 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
   console.log('User ID:', req.user.id);
   
   try {
+    // Validate required fields
+    if (!req.body.weekNumber || !req.body.year) {
+      return next(
+        new ErrorResponse('Week number and year are required', 400)
+      );
+    }
+
+    // Ensure weekNumber and year are numbers
+    const weekNumber = parseInt(req.body.weekNumber, 10);
+    const year = parseInt(req.body.year, 10);
+
+    if (isNaN(weekNumber) || isNaN(year)) {
+      return next(
+        new ErrorResponse('Week number and year must be valid numbers', 400)
+      );
+    }
+
     // Add user to req.body
     req.body.createdBy = req.user.id;
   
-    // Generate weekId if not provided
-    if (!req.body.weekId && req.body.weekNumber && req.body.year) {
-      const weekNum = req.body.weekNumber.toString().padStart(2, '0');
-      req.body.weekId = `${req.body.year}-${weekNum}`;
-    }
+    // Generate weekId
+    const weekNumStr = weekNumber.toString().padStart(2, '0');
+    const weekId = `${year}-${weekNumStr}`;
+    req.body.weekId = weekId;
+    req.body.weekNumber = weekNumber;
+    req.body.year = year;
   
-    console.log('Generated weekId:', req.body.weekId);
+    console.log('Generated weekId:', weekId);
   
     // Check if menu already exists for this week
-    let existingMenu;
-    if (req.body.weekId) {
-      existingMenu = await WeeklyMenu.findOne({ weekId: req.body.weekId });
-    } else if (req.body.weekNumber && req.body.year) {
-      existingMenu = await WeeklyMenu.findOne({ 
-        weekNumber: req.body.weekNumber, 
-        year: req.body.year 
-      });
-    }
+    const existingMenu = await WeeklyMenu.findOne({ weekId });
   
     if (existingMenu) {
       console.log('Menu already exists:', existingMenu._id);
       return next(
-        new ErrorResponse(`Menu already exists for week ${req.body.weekId || `${req.body.year}-${req.body.weekNumber}`}`, 400)
+        new ErrorResponse(`Menu already exists for week ${weekId}`, 400)
       );
     }
   
     // Ensure days array is properly formatted
-    if (req.body.days) {
-      console.log('Days before processing:', JSON.stringify(req.body.days, null, 2));
+    if (!Array.isArray(req.body.days)) {
+      return next(
+        new ErrorResponse('Days must be an array', 400)
+      );
+    }
+
+    // Process days array
+    const processedDays = [];
+    
+    for (let i = 0; i < req.body.days.length; i++) {
+      const day = req.body.days[i];
       
-      // Make sure each day's meals array contains valid meal IDs
-      for (let i = 0; i < req.body.days.length; i++) {
-        const day = req.body.days[i];
-        if (day && day.meals) {
-          // Ensure all meal IDs are strings
-          day.meals = day.meals.map(meal => {
-            if (typeof meal === 'object' && meal._id) {
-              return meal._id;
-            }
-            return meal;
-          });
-        }
+      if (!day) {
+        processedDays.push({ meals: [] });
+        continue;
       }
       
-      console.log('Days after processing:', JSON.stringify(req.body.days, null, 2));
+      // Ensure meals is an array
+      if (!Array.isArray(day.meals)) {
+        processedDays.push({ meals: [] });
+        continue;
+      }
+      
+      // Process meal IDs
+      const mealIds = day.meals
+        .map(meal => {
+          if (typeof meal === 'string') {
+            return meal;
+          } else if (meal && meal._id) {
+            return meal._id;
+          }
+          return null;
+        })
+        .filter(id => id !== null);
+      
+      processedDays.push({ meals: mealIds });
     }
-  
+    
+    // Ensure we have 7 days
+    while (processedDays.length < 7) {
+      processedDays.push({ meals: [] });
+    }
+    
+    // Prepare the menu data
+    const menuData = {
+      weekNumber,
+      year,
+      weekId,
+      days: processedDays,
+      createdBy: req.user.id
+    };
+    
+    console.log('Creating menu with processed data:', JSON.stringify(menuData, null, 2));
+    
     // Create the menu
-    console.log('Creating menu with processed data:', JSON.stringify(req.body, null, 2));
-    const menu = await WeeklyMenu.create(req.body);
+    const menu = await WeeklyMenu.create(menuData);
     
     console.log('Menu created successfully with ID:', menu._id);
-    console.log('Menu after creation:', JSON.stringify(menu, null, 2));
   
     // Populate the menu
     await menu.populate([
@@ -146,8 +188,6 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
         select: 'name'
       }
     ]);
-    
-    console.log('Menu after population:', JSON.stringify(menu, null, 2));
   
     // Emit socket event for real-time updates
     if (req.io) {
@@ -177,6 +217,14 @@ exports.updateMenu = asyncHandler(async (req, res, next) => {
   console.log('User ID:', req.user.id);
 
   try {
+    // Validate weekId format
+    if (!weekId || !/^\d{4}-\d{2}$/.test(weekId)) {
+      return next(
+        new ErrorResponse(`Invalid week ID format: ${weekId}. Expected format: YYYY-WW`, 400)
+      );
+    }
+
+    // Find the menu
     let menu = await WeeklyMenu.findOne({ weekId });
   
     if (!menu) {
@@ -186,37 +234,84 @@ exports.updateMenu = asyncHandler(async (req, res, next) => {
     }
   
     console.log('Found existing menu with ID:', menu._id);
-  
-    // Ensure days array is properly formatted
-    if (req.body.days) {
-      console.log('Days before processing:', JSON.stringify(req.body.days, null, 2));
-      
-      // Make sure each day's meals array contains valid meal IDs
-      for (let i = 0; i < req.body.days.length; i++) {
-        const day = req.body.days[i];
-        if (day && day.meals) {
-          // Ensure all meal IDs are strings
-          day.meals = day.meals.map(meal => {
-            if (typeof meal === 'object' && meal._id) {
-              return meal._id;
-            }
-            return meal;
-          });
-        }
+
+    // Ensure weekNumber and year are numbers if provided
+    let updateData = { ...req.body };
+    
+    if (updateData.weekNumber) {
+      updateData.weekNumber = parseInt(updateData.weekNumber, 10);
+      if (isNaN(updateData.weekNumber)) {
+        return next(
+          new ErrorResponse('Week number must be a valid number', 400)
+        );
       }
-      
-      console.log('Days after processing:', JSON.stringify(req.body.days, null, 2));
+    }
+    
+    if (updateData.year) {
+      updateData.year = parseInt(updateData.year, 10);
+      if (isNaN(updateData.year)) {
+        return next(
+          new ErrorResponse('Year must be a valid number', 400)
+        );
+      }
     }
   
+    // Process days array if provided
+    if (Array.isArray(updateData.days)) {
+      const processedDays = [];
+      
+      for (let i = 0; i < updateData.days.length; i++) {
+        const day = updateData.days[i];
+        
+        if (!day) {
+          processedDays.push({ meals: [] });
+          continue;
+        }
+        
+        // Ensure meals is an array
+        if (!Array.isArray(day.meals)) {
+          processedDays.push({ meals: [] });
+          continue;
+        }
+        
+        // Process meal IDs
+        const mealIds = day.meals
+          .map(meal => {
+            if (typeof meal === 'string') {
+              return meal;
+            } else if (meal && meal._id) {
+              return meal._id;
+            }
+            return null;
+          })
+          .filter(id => id !== null);
+        
+        processedDays.push({ meals: mealIds });
+      }
+      
+      // Ensure we have 7 days
+      while (processedDays.length < 7) {
+        processedDays.push({ meals: [] });
+      }
+      
+      updateData.days = processedDays;
+    }
+    
+    console.log('Updating menu with processed data:', JSON.stringify(updateData, null, 2));
+    
     // Update the menu
-    console.log('Updating menu with processed data');
-    menu = await WeeklyMenu.findOneAndUpdate({ weekId }, req.body, {
+    menu = await WeeklyMenu.findOneAndUpdate({ weekId }, updateData, {
       new: true,
       runValidators: true
     });
   
+    if (!menu) {
+      return next(
+        new ErrorResponse(`Failed to update menu for week ${weekId}`, 500)
+      );
+    }
+    
     console.log('Menu updated successfully with ID:', menu._id);
-    console.log('Menu after update:', JSON.stringify(menu, null, 2));
   
     // Populate the menu
     await menu.populate([
@@ -229,8 +324,6 @@ exports.updateMenu = asyncHandler(async (req, res, next) => {
         select: 'name'
       }
     ]);
-  
-    console.log('Menu after population:', JSON.stringify(menu, null, 2));
   
     // Emit socket event for real-time updates
     if (req.io) {

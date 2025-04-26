@@ -277,6 +277,16 @@ const MenuForm = ({
       return;
     }
     
+    // Check if any days have meals
+    const hasMeals = menuData.days.some(day => 
+      Array.isArray(day.meals) && day.meals.length > 0
+    );
+    
+    if (!hasMeals) {
+      setError('Please add at least one meal to the menu before saving');
+      return;
+    }
+    
     // Reset states
     setSubmitting(true);
     setError(null);
@@ -289,11 +299,16 @@ const MenuForm = ({
         setSubmitting(false);
         setError('The operation took too long. Please try again.');
       }
-    }, 10000); // 10 seconds timeout
+    }, 15000); // 15 seconds timeout
     
     // Prepare data for API
-    const weekNum = menuData.weekNumber.toString().padStart(2, '0');
-    const weekId = `${menuData.year}-${weekNum}`;
+    const weekNum = parseInt(menuData.weekNumber, 10);
+    const year = parseInt(menuData.year, 10);
+    const weekNumStr = weekNum.toString().padStart(2, '0');
+    const weekId = `${year}-${weekNumStr}`;
+    
+    console.log('Preparing menu with weekId:', weekId);
+    console.log('Week number:', weekNum, 'Year:', year);
     
     // Ensure we have 7 days in the array
     let days = [...menuData.days];
@@ -323,8 +338,8 @@ const MenuForm = ({
     console.log('Final processed days:', processedDays);
     
     const menuPayload = {
-      weekNumber: menuData.weekNumber,
-      year: menuData.year,
+      weekNumber: weekNum,
+      year: year,
       weekId: weekId,
       days: processedDays
     };
@@ -362,7 +377,7 @@ const MenuForm = ({
         
         return updateMenu(idToUse, menuPayload);
       } else {
-        console.log('Creating new menu');
+        console.log('Creating new menu with payload:', JSON.stringify(menuPayload, null, 2));
         return createMenu(menuPayload);
       }
     };
