@@ -84,9 +84,11 @@ app.use(hpp());
 // Sanitize data
 app.use(mongoSanitize());
 
-// Enable CORS with simpler configuration for development
+// Enable CORS with configuration for both development and production
 const corsOptions = {
-  origin: 'http://localhost:3000', // Allow only the React app in development
+  origin: process.env.NODE_ENV === 'production' 
+    ? [/\.vercel\.app$/, process.env.FRONTEND_URL].filter(Boolean) 
+    : 'http://localhost:3000',
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
   exposedHeaders: ['Content-Length', 'X-Requested-With'],
