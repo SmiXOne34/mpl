@@ -74,7 +74,7 @@ exports.getMenuByWeek = asyncHandler(async (req, res, next) => {
  * @access  Private (Admin only)
  */
 exports.createMenu = asyncHandler(async (req, res, next) => {
-  console.log('Creating menu with data:', req.body);
+  console.log('Creating menu with data:', JSON.stringify(req.body, null, 2));
   
   // Add user to req.body
   req.body.createdBy = req.user.id;
@@ -102,8 +102,31 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Ensure days array is properly formatted
+  if (req.body.days) {
+    console.log('Days before processing:', JSON.stringify(req.body.days, null, 2));
+    
+    // Make sure each day's meals array contains valid meal IDs
+    for (let i = 0; i < req.body.days.length; i++) {
+      const day = req.body.days[i];
+      if (day && day.meals) {
+        // Ensure all meal IDs are strings
+        day.meals = day.meals.map(meal => {
+          if (typeof meal === 'object' && meal._id) {
+            return meal._id;
+          }
+          return meal;
+        });
+      }
+    }
+    
+    console.log('Days after processing:', JSON.stringify(req.body.days, null, 2));
+  }
+
   // Create the menu
   const menu = await WeeklyMenu.create(req.body);
+  
+  console.log('Menu after creation:', JSON.stringify(menu, null, 2));
 
   // Populate the menu
   await menu.populate([
@@ -116,6 +139,8 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
       select: 'name'
     }
   ]);
+  
+  console.log('Menu after population:', JSON.stringify(menu, null, 2));
 
   // Emit socket event for real-time updates
   if (req.io) {
@@ -135,7 +160,7 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
  */
 exports.updateMenu = asyncHandler(async (req, res, next) => {
   const { weekId } = req.params;
-  console.log('Updating menu for week:', weekId, 'with data:', req.body);
+  console.log('Updating menu for week:', weekId, 'with data:', JSON.stringify(req.body, null, 2));
 
   let menu = await WeeklyMenu.findOne({ weekId });
 
@@ -145,10 +170,33 @@ exports.updateMenu = asyncHandler(async (req, res, next) => {
     );
   }
 
+  // Ensure days array is properly formatted
+  if (req.body.days) {
+    console.log('Days before processing:', JSON.stringify(req.body.days, null, 2));
+    
+    // Make sure each day's meals array contains valid meal IDs
+    for (let i = 0; i < req.body.days.length; i++) {
+      const day = req.body.days[i];
+      if (day && day.meals) {
+        // Ensure all meal IDs are strings
+        day.meals = day.meals.map(meal => {
+          if (typeof meal === 'object' && meal._id) {
+            return meal._id;
+          }
+          return meal;
+        });
+      }
+    }
+    
+    console.log('Days after processing:', JSON.stringify(req.body.days, null, 2));
+  }
+
   menu = await WeeklyMenu.findOneAndUpdate({ weekId }, req.body, {
     new: true,
     runValidators: true
   });
+
+  console.log('Menu after update:', JSON.stringify(menu, null, 2));
 
   // Populate the menu
   await menu.populate([
@@ -161,6 +209,8 @@ exports.updateMenu = asyncHandler(async (req, res, next) => {
       select: 'name'
     }
   ]);
+
+  console.log('Menu after population:', JSON.stringify(menu, null, 2));
 
   // Emit socket event for real-time updates
   if (req.io) {

@@ -164,7 +164,11 @@ const WeeklyMenu = ({
   const dateRange = formatDateRange(weekDates.start, weekDates.end);
   
   // Get meals for the selected day
-  const dayMeals = currentMenu.days[selectedDay]?.meals || [];
+  const dayMeals = currentMenu.days && currentMenu.days[selectedDay]?.meals || [];
+  
+  console.log('Current menu:', currentMenu);
+  console.log('Selected day:', selectedDay);
+  console.log('Day meals:', dayMeals);
   
   // Check if a meal is selected
   const isSelected = (mealId) => {

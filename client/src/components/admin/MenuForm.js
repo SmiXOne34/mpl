@@ -156,6 +156,9 @@ const MenuForm = ({
   const handleAddMeal = () => {
     if (!selectedMeal) return;
     
+    console.log('Adding meal to menu:', selectedMeal);
+    console.log('Current menuData:', menuData);
+    
     // Ensure the days array has enough elements
     const updatedDays = [...menuData.days];
     while (updatedDays.length <= selectedDay) {
@@ -174,18 +177,24 @@ const MenuForm = ({
     
     // Check if meal is already in the day's menu
     if (updatedDays[selectedDay].meals.some(meal => {
-      return meal._id === selectedMeal._id || 
-             (typeof meal === 'string' && meal === selectedMeal._id);
+      const mealId = typeof meal === 'object' ? meal._id : meal;
+      const selectedId = typeof selectedMeal === 'object' ? selectedMeal._id : selectedMeal;
+      return mealId === selectedId;
     })) {
       setError('This meal is already in the menu for this day');
       return;
     }
     
     // Add the meal to the day's menu
+    // Make sure we're adding just the ID if it's an object
+    const mealToAdd = typeof selectedMeal === 'object' ? selectedMeal._id : selectedMeal;
+    
     updatedDays[selectedDay] = {
       ...updatedDays[selectedDay],
-      meals: [...updatedDays[selectedDay].meals, selectedMeal]
+      meals: [...updatedDays[selectedDay].meals, mealToAdd]
     };
+    
+    console.log('Updated days array:', updatedDays);
     
     setMenuData({
       ...menuData,
@@ -279,8 +288,11 @@ const MenuForm = ({
         return null;
       }).filter(id => id !== null);
       
+      console.log('Processed meal IDs for day:', mealIds);
       return { meals: mealIds };
     });
+    
+    console.log('Final processed days:', processedDays);
     
     const menuPayload = {
       weekNumber: menuData.weekNumber,
