@@ -147,120 +147,130 @@ export const login = (email, password) => async dispatch => {
   console.log(`Using API URL: ${apiUrl}`);
   
   try {
-    // Use a simple fetch request with credentials
-    console.log('Making login request with fetch API');
+    // Use axios for the request
+    console.log('Making login request with axios');
     
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify({ email, password }),
-      credentials: 'include',
-      mode: 'cors'
-    });
+    const response = await api.post('/auth/login', { email, password });
     
-    console.log('Fetch response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Server error response:', errorText);
-      throw new Error(`Server responded with status: ${response.status}`);
-    }
-    
-    const data = await response.json();
-    console.log('Login successful, response:', data);
+    console.log('Login successful, response:', response.data);
     
     // Store token in localStorage
-    if (data && data.token) {
-      localStorage.setItem('token', data.token);
+    if (response.data && response.data.token) {
+      localStorage.setItem('token', response.data.token);
       console.log('Token stored in localStorage');
+      
+      // Set the token in axios defaults for future requests
+      setAuthToken(response.data.token);
     }
     
     dispatch({
       type: LOGIN_SUCCESS,
-      payload: data
+      payload: response.data
     });
     
     // Initialize socket connection with the new token
-    if (data && data.token) {
+    if (response.data && response.data.token) {
       console.log('Initializing socket connection after login');
-      initSocket(data.token);
+      initSocket(response.data.token);
     }
     
     // Load user after successful login
     dispatch(loadUser());
     
   } catch (err) {
-    console.error('Login failed:', err);
+    console.error('Login failed with axios:', err);
     
-    // Determine the most appropriate error message
-    let errorMessage = 'Login failed. Please check your credentials and try again.';
+    // Try with fetch as a fallback
+    console.log('Attempting fetch as fallback');
     
-    if (err.message) {
-      errorMessage = `Error: ${err.message}`;
-    }
-    
-    // Dispatch the error
-    dispatch({
-      type: LOGIN_FAIL,
-      payload: errorMessage
-    });
-    
-    // Log diagnostic information
-    console.error('Login diagnostic information:', {
-      environment: process.env.NODE_ENV,
-      apiUrl: apiUrl,
-      browserLocation: window.location.href,
-      userAgent: navigator.userAgent
-    });
-    
-    // Try a direct XHR request as a last resort
-    console.log('Attempting XHR request as fallback');
-    
-    const xhr = new XMLHttpRequest();
-    xhr.open('POST', apiUrl, true);
-    xhr.setRequestHeader('Content-Type', 'application/json');
-    xhr.withCredentials = true;
-    
-    xhr.onload = function() {
-      console.log('XHR status:', xhr.status);
-      console.log('XHR response:', xhr.responseText);
+    try {
+      const fetchResponse = await fetch(apiUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({ email, password }),
+        credentials: 'include'
+      });
       
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try {
-          const data = JSON.parse(xhr.responseText);
-          console.log('XHR login successful:', data);
-          
-          // Store token in localStorage
-          if (data && data.token) {
-            localStorage.setItem('token', data.token);
-          }
-          
-          dispatch({
-            type: LOGIN_SUCCESS,
-            payload: data
-          });
-          
-          // Initialize socket connection with the new token
-          if (data && data.token) {
-            initSocket(data.token);
-          }
-          
-          // Load user after successful login
-          dispatch(loadUser());
-        } catch (parseErr) {
-          console.error('Error parsing XHR response:', parseErr);
+      console.log('Fetch response status:', fetchResponse.status);
+      
+      // Even if we get a 401, try to parse the response
+      const responseText = await fetchResponse.text();
+      console.log('Server response text:', responseText);
+      
+      let data;
+      try {
+        data = JSON.parse(responseText);
+        console.log('Parsed response data:', data);
+      } catch (e) {
+        console.error('Failed to parse response as JSON:', e);
+      }
+      
+      if (!fetchResponse.ok) {
+        // If we have a structured error message from the server, use it
+        if (data && data.error) {
+          throw new Error(data.error);
+        } else {
+          throw new Error(`Server responded with status: ${fetchResponse.status}`);
         }
       }
-    };
-    
-    xhr.onerror = function() {
-      console.error('XHR request failed');
-    };
-    
-    xhr.send(JSON.stringify({ email, password }));
+      
+      // If we got here, the fetch was successful
+      console.log('Login successful with fetch, response:', data);
+      
+      // Store token in localStorage
+      if (data && data.token) {
+        localStorage.setItem('token', data.token);
+        console.log('Token stored in localStorage');
+        
+        // Set the token in axios defaults for future requests
+        setAuthToken(data.token);
+      }
+      
+      dispatch({
+        type: LOGIN_SUCCESS,
+        payload: data
+      });
+      
+      // Initialize socket connection with the new token
+      if (data && data.token) {
+        console.log('Initializing socket connection after login');
+        initSocket(data.token);
+      }
+      
+      // Load user after successful login
+      dispatch(loadUser());
+      
+    } catch (fetchErr) {
+      console.error('Login failed with fetch:', fetchErr);
+      
+      // Determine the most appropriate error message
+      let errorMessage = 'Login failed. Please check your credentials and try again.';
+      
+      if (fetchErr.message) {
+        if (fetchErr.message.includes('401')) {
+          errorMessage = 'Invalid email or password. Please try again.';
+        } else {
+          errorMessage = `Error: ${fetchErr.message}`;
+        }
+      }
+      
+      // Dispatch the error
+      dispatch({
+        type: LOGIN_FAIL,
+        payload: errorMessage
+      });
+      
+      // Log diagnostic information
+      console.error('Login diagnostic information:', {
+        environment: process.env.NODE_ENV,
+        apiUrl: apiUrl,
+        browserLocation: window.location.href,
+        userAgent: navigator.userAgent
+      });
+    }
   }
 };
 

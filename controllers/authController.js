@@ -55,28 +55,39 @@ exports.register = asyncHandler(async (req, res, next) => {
  * @access  Public
  */
 exports.login = asyncHandler(async (req, res, next) => {
-  const { email, password } = req.body;
+  try {
+    console.log('Login attempt:', { email: req.body.email });
+    
+    const { email, password } = req.body;
 
-  // Validate email & password
-  if (!email || !password) {
-    return next(new ErrorResponse('Please provide an email and password', 400));
+    // Validate email & password
+    if (!email || !password) {
+      console.log('Login failed: Missing email or password');
+      return next(new ErrorResponse('Please provide an email and password', 400));
+    }
+
+    // Check for user
+    const user = await User.findOne({ email }).select('+password');
+
+    if (!user) {
+      console.log('Login failed: User not found');
+      return next(new ErrorResponse('Invalid credentials', 401));
+    }
+
+    // Check if password matches
+    const isMatch = await user.matchPassword(password);
+
+    if (!isMatch) {
+      console.log('Login failed: Password does not match');
+      return next(new ErrorResponse('Invalid credentials', 401));
+    }
+
+    console.log('Login successful for user:', user._id);
+    sendTokenResponse(user, 200, res);
+  } catch (error) {
+    console.error('Unexpected error in login:', error);
+    return next(new ErrorResponse('Server error during login', 500));
   }
-
-  // Check for user
-  const user = await User.findOne({ email }).select('+password');
-
-  if (!user) {
-    return next(new ErrorResponse('Invalid credentials', 401));
-  }
-
-  // Check if password matches
-  const isMatch = await user.matchPassword(password);
-
-  if (!isMatch) {
-    return next(new ErrorResponse('Invalid credentials', 401));
-  }
-
-  sendTokenResponse(user, 200, res);
 });
 
 /**
@@ -258,22 +269,42 @@ const sendTokenResponse = (user, statusCode, res) => {
   // Create token
   const token = user.getSignedJwtToken();
 
+  // Calculate cookie expiration
+  const cookieExpire = process.env.JWT_COOKIE_EXPIRE || 30; // Default to 30 days if not set
+  const expiresDate = new Date(Date.now() + cookieExpire * 24 * 60 * 60 * 1000);
+  
+  console.log('Setting cookie to expire at:', expiresDate);
+
   const options = {
-    expires: new Date(
-      Date.now() + process.env.JWT_COOKIE_EXPIRE * 24 * 60 * 60 * 1000
-    ),
-    httpOnly: true
+    expires: expiresDate,
+    httpOnly: true,
+    sameSite: 'lax' // Allow cookies to be sent in cross-site requests
   };
 
+  // In production, set secure flag if not running on HTTP
   if (process.env.NODE_ENV === 'production') {
-    options.secure = true;
+    // Only set secure=true if not explicitly disabled
+    if (process.env.COOKIE_SECURE !== 'false') {
+      options.secure = true;
+    }
   }
 
+  // Log the token and cookie options for debugging
+  console.log('Token generated successfully');
+  console.log('Cookie options:', JSON.stringify(options));
+
+  // Set the cookie and send the response
   res
     .status(statusCode)
     .cookie('token', token, options)
     .json({
       success: true,
-      token
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role
+      }
     });
 };

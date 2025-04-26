@@ -15,6 +15,7 @@ services:
       - FRONTEND_URL=${FRONTEND_URL}
       - CLIENT_URL=${FRONTEND_URL}
       - REACT_APP_API_URL=/api
+      - COOKIE_SECURE=false
     restart: always
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:9091/api/health"]
