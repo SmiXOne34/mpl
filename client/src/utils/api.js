@@ -64,8 +64,27 @@ api.interceptors.request.use(
     
     // Log request details
     console.log(`Making ${config.method.toUpperCase()} request to: ${config.baseURL}${config.url}`);
-    console.log('Request data:', config.data);
+    console.log('Request data:', typeof config.data === 'string' ? JSON.parse(config.data) : config.data);
     console.log('Request headers:', config.headers);
+    
+    // Check for auth token
+    if (config.headers.Authorization) {
+      console.log('Auth token present:', config.headers.Authorization.substring(0, 15) + '...');
+    } else if (document.cookie.includes('token=')) {
+      console.log('Token found in cookies');
+    } else {
+      console.warn('No authorization token found in headers or cookies!');
+    }
+    
+    // Log additional request info
+    console.log('Request details:', {
+      url: config.url,
+      method: config.method,
+      baseURL: config.baseURL,
+      timeout: config.timeout,
+      withCredentials: config.withCredentials
+    });
+    
     console.log('Browser info:', {
       userAgent: navigator.userAgent,
       language: navigator.language,
@@ -87,8 +106,21 @@ api.interceptors.response.use(
     console.log(`Received response from ${response.config.url}:`, {
       status: response.status,
       statusText: response.statusText,
-      data: response.data
+      data: response.data,
+      headers: response.headers
     });
+    
+    // Check if the response has the expected structure
+    if (response.data) {
+      if (response.data.success === false) {
+        console.warn('API returned success: false', response.data);
+      }
+      
+      if (!response.data.success && !response.data.error) {
+        console.warn('API response missing both success and error fields:', response.data);
+      }
+    }
+    
     return response;
   },
   async error => {
@@ -105,6 +137,18 @@ api.interceptors.response.use(
         headers: error.response.headers
       });
       
+      // Log more details about the error
+      console.error('Detailed error response:', {
+        url: originalRequest?.url,
+        method: originalRequest?.method,
+        requestData: originalRequest?.data ? 
+          (typeof originalRequest.data === 'string' ? 
+            JSON.parse(originalRequest.data) : originalRequest.data) : 'No data',
+        responseData: error.response.data,
+        message: error.message,
+        stack: error.stack
+      });
+      
       // If we get a 401 Unauthorized error, we might want to redirect to login
       if (error.response.status === 401) {
         console.log('Authentication error detected. User may need to log in again.');
@@ -117,6 +161,8 @@ api.interceptors.response.use(
         request: error.request,
         method: originalRequest?.method,
         url: originalRequest?.url,
+        data: originalRequest?.data,
+        headers: originalRequest?.headers,
         retryCount: originalRequest?.retryCount || 0
       });
       
@@ -135,7 +181,7 @@ api.interceptors.response.use(
           
           try {
             // Try with fetch as a last resort
-            const fetchResponse = await fetch(`${window.location.origin}${originalRequest.url}`, {
+            const fetchResponse = await fetch(`${originalRequest.baseURL || ''}${originalRequest.url}`, {
               method: originalRequest.method,
               headers: {
                 'Content-Type': 'application/json',
@@ -145,16 +191,26 @@ api.interceptors.response.use(
               credentials: 'include'
             });
             
-            const data = await fetchResponse.json();
+            console.log('Fetch response status:', fetchResponse.status);
             
-            return {
-              status: fetchResponse.status,
-              statusText: fetchResponse.statusText,
-              headers: fetchResponse.headers,
-              data,
-              config: originalRequest,
-              request: {}
-            };
+            try {
+              const data = await fetchResponse.json();
+              console.log('Fetch response data:', data);
+              
+              return {
+                status: fetchResponse.status,
+                statusText: fetchResponse.statusText,
+                headers: fetchResponse.headers,
+                data,
+                config: originalRequest,
+                request: {}
+              };
+            } catch (jsonError) {
+              console.error('Error parsing JSON from fetch response:', jsonError);
+              const text = await fetchResponse.text();
+              console.log('Raw response text:', text);
+              throw jsonError;
+            }
           } catch (fetchError) {
             console.error('Fetch fallback also failed:', fetchError);
           }
@@ -167,6 +223,7 @@ api.interceptors.response.use(
       // Something happened in setting up the request that triggered an Error
       console.error('Error setting up request:', {
         message: error.message,
+        stack: error.stack,
         config: originalRequest
       });
     }
@@ -177,7 +234,8 @@ api.interceptors.response.use(
       url: window.location.href,
       apiBaseUrl: api.defaults.baseURL,
       userAgent: navigator.userAgent,
-      networkType: navigator.connection ? navigator.connection.effectiveType : 'unknown'
+      networkType: navigator.connection ? navigator.connection.effectiveType : 'unknown',
+      cookies: document.cookie ? 'Present (not shown for security)' : 'No cookies'
     };
     
     return Promise.reject(error);

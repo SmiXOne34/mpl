@@ -75,14 +75,19 @@ exports.getMenuByWeek = asyncHandler(async (req, res, next) => {
  */
 exports.createMenu = asyncHandler(async (req, res, next) => {
   console.log('Creating menu with data:', JSON.stringify(req.body, null, 2));
-  console.log('User ID:', req.user.id);
+  console.log('User ID:', req.user ? req.user.id : 'No user ID found');
   
   try {
+    // Check if user is authenticated
+    if (!req.user || !req.user.id) {
+      console.error('No authenticated user found');
+      return next(new ErrorResponse('Authentication required', 401));
+    }
+    
     // Validate required fields
     if (!req.body.weekNumber || !req.body.year) {
-      return next(
-        new ErrorResponse('Week number and year are required', 400)
-      );
+      console.error('Missing required fields: weekNumber or year');
+      return next(new ErrorResponse('Week number and year are required', 400));
     }
 
     // Ensure weekNumber and year are numbers
@@ -90,21 +95,13 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
     const year = parseInt(req.body.year, 10);
 
     if (isNaN(weekNumber) || isNaN(year)) {
-      return next(
-        new ErrorResponse('Week number and year must be valid numbers', 400)
-      );
+      console.error('Invalid number format: weekNumber or year');
+      return next(new ErrorResponse('Week number and year must be valid numbers', 400));
     }
 
-    // Add user to req.body
-    req.body.createdBy = req.user.id;
-  
     // Generate weekId
     const weekNumStr = weekNumber.toString().padStart(2, '0');
     const weekId = `${year}-${weekNumStr}`;
-    req.body.weekId = weekId;
-    req.body.weekNumber = weekNumber;
-    req.body.year = year;
-  
     console.log('Generated weekId:', weekId);
   
     // Check if menu already exists for this week
@@ -112,16 +109,13 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
   
     if (existingMenu) {
       console.log('Menu already exists:', existingMenu._id);
-      return next(
-        new ErrorResponse(`Menu already exists for week ${weekId}`, 400)
-      );
+      return next(new ErrorResponse(`Menu already exists for week ${weekId}`, 400));
     }
   
     // Ensure days array is properly formatted
     if (!Array.isArray(req.body.days)) {
-      return next(
-        new ErrorResponse('Days must be an array', 400)
-      );
+      console.error('Days is not an array');
+      return next(new ErrorResponse('Days must be an array', 400));
     }
 
     // Process days array
@@ -172,37 +166,53 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
     
     console.log('Creating menu with processed data:', JSON.stringify(menuData, null, 2));
     
-    // Create the menu
-    const menu = await WeeklyMenu.create(menuData);
+    try {
+      // Create the menu
+      const menu = await WeeklyMenu.create(menuData);
+      console.log('Menu created successfully with ID:', menu._id);
     
-    console.log('Menu created successfully with ID:', menu._id);
-  
-    // Populate the menu
-    await menu.populate([
-      {
-        path: 'days.meals',
-        select: 'name description imageUrl tags'
-      },
-      {
-        path: 'createdBy',
-        select: 'name'
+      // Populate the menu
+      await menu.populate([
+        {
+          path: 'days.meals',
+          select: 'name description imageUrl tags'
+        },
+        {
+          path: 'createdBy',
+          select: 'name'
+        }
+      ]);
+    
+      // Emit socket event for real-time updates
+      if (req.io) {
+        console.log('Emitting menu:created event');
+        req.io.emit('menu:created', menu);
       }
-    ]);
-  
-    // Emit socket event for real-time updates
-    if (req.io) {
-      console.log('Emitting menu:created event');
-      req.io.emit('menu:created', menu);
+    
+      console.log('Sending success response');
+      return res.status(201).json({
+        success: true,
+        data: menu
+      });
+    } catch (dbError) {
+      console.error('Database error creating menu:', dbError);
+      
+      // Check for validation errors
+      if (dbError.name === 'ValidationError') {
+        const messages = Object.values(dbError.errors).map(val => val.message);
+        return next(new ErrorResponse(`Validation error: ${messages.join(', ')}`, 400));
+      }
+      
+      // Check for duplicate key error
+      if (dbError.code === 11000) {
+        return next(new ErrorResponse(`Menu already exists for week ${weekId}`, 400));
+      }
+      
+      return next(new ErrorResponse(`Error creating menu: ${dbError.message}`, 500));
     }
-  
-    console.log('Sending success response');
-    res.status(201).json({
-      success: true,
-      data: menu
-    });
   } catch (error) {
-    console.error('Error in createMenu controller:', error);
-    return next(new ErrorResponse(`Error creating menu: ${error.message}`, 500));
+    console.error('Unexpected error in createMenu controller:', error);
+    return next(new ErrorResponse(`Server error: ${error.message}`, 500));
   }
 });
 

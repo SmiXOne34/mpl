@@ -82,20 +82,97 @@ export const createMenu = menuData => async dispatch => {
     console.log('Creating menu with data:', JSON.stringify(menuData, null, 2));
     dispatch({ type: SET_LOADING });
 
-    // Log the request URL and headers
-    console.log('Making POST request to:', '/menu');
-    console.log('Request headers:', api.defaults.headers);
-    
-    const res = await api.post('/menu', menuData);
-    console.log('Create menu response status:', res.status);
-    console.log('Create menu response headers:', res.headers);
-    console.log('Create menu response data:', JSON.stringify(res.data, null, 2));
-
-    if (!res.data || !res.data.success) {
-      console.error('API returned success: false or no data');
-      throw new Error('API returned unsuccessful response');
+    // Validate the menu data
+    if (!menuData.weekNumber || !menuData.year) {
+      const error = new Error('Week number and year are required');
+      dispatch({
+        type: MENU_ERROR,
+        payload: error.message
+      });
+      throw error;
     }
 
+    // Ensure weekNumber and year are numbers
+    const weekNumber = parseInt(menuData.weekNumber, 10);
+    const year = parseInt(menuData.year, 10);
+
+    if (isNaN(weekNumber) || isNaN(year)) {
+      const error = new Error('Week number and year must be valid numbers');
+      dispatch({
+        type: MENU_ERROR,
+        payload: error.message
+      });
+      throw error;
+    }
+
+    // Ensure days is an array
+    if (!Array.isArray(menuData.days)) {
+      const error = new Error('Days must be an array');
+      dispatch({
+        type: MENU_ERROR,
+        payload: error.message
+      });
+      throw error;
+    }
+
+    // Process the days array to ensure proper format
+    const processedDays = menuData.days.map(day => {
+      if (!day) return { meals: [] };
+      
+      // Ensure meals is an array
+      if (!Array.isArray(day.meals)) return { meals: [] };
+      
+      // Process meal IDs
+      const mealIds = day.meals
+        .map(meal => {
+          if (typeof meal === 'string') return meal;
+          if (meal && meal._id) return meal._id;
+          return null;
+        })
+        .filter(id => id !== null);
+      
+      return { meals: mealIds };
+    });
+
+    // Ensure we have 7 days
+    const finalDays = [...processedDays];
+    while (finalDays.length < 7) {
+      finalDays.push({ meals: [] });
+    }
+
+    // Prepare the final payload
+    const finalPayload = {
+      weekNumber,
+      year,
+      weekId: `${year}-${weekNumber.toString().padStart(2, '0')}`,
+      days: finalDays
+    };
+
+    console.log('Making POST request to /menu with processed data:', JSON.stringify(finalPayload, null, 2));
+    
+    // Make the API request
+    const res = await api.post('/menu', finalPayload);
+    
+    console.log('Create menu response status:', res.status);
+    console.log('Create menu response data:', JSON.stringify(res.data, null, 2));
+
+    // Validate the response
+    if (!res.data) {
+      console.error('API returned empty response');
+      throw new Error('API returned empty response');
+    }
+
+    if (!res.data.success) {
+      console.error('API returned success: false', res.data);
+      throw new Error(res.data.error || 'API returned unsuccessful response');
+    }
+
+    if (!res.data.data) {
+      console.error('API response missing data field', res.data);
+      throw new Error('API response missing data');
+    }
+
+    // Dispatch the success action
     dispatch({
       type: CREATE_MENU,
       payload: res.data.data
@@ -105,28 +182,27 @@ export const createMenu = menuData => async dispatch => {
   } catch (err) {
     console.error('Error creating menu:', err);
     
-    let errorMessage = 'Error creating menu';
+    let errorMessage = 'Failed to save menu. Please try again.';
+    
     if (err.response) {
-      errorMessage = err.response.data?.error || err.response.data?.message || `Server error: ${err.response.status}`;
+      errorMessage = err.response.data?.error || err.response.data?.message || `${errorMessage}: ${err.response.status}`;
       console.error('Server response details:', {
         status: err.response.status,
         statusText: err.response.statusText,
         data: JSON.stringify(err.response.data, null, 2),
         headers: err.response.headers,
         url: err.response.config?.url,
-        method: err.response.config?.method,
-        requestData: err.response.config?.data
+        method: err.response.config?.method
       });
     } else if (err.request) {
       errorMessage = 'No response from server. Please check your connection.';
       console.error('No response received:', {
         request: err.request,
         url: err.config?.url,
-        method: err.config?.method,
-        data: err.config?.data
+        method: err.config?.method
       });
     } else {
-      errorMessage = `Request error: ${err.message}`;
+      errorMessage = `${errorMessage}: ${err.message}`;
     }
     
     dispatch({
