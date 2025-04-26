@@ -32,6 +32,10 @@ const WeeklyMenuSchema = new mongoose.Schema({
     ref: 'User',
     required: true
   },
+  updatedBy: {
+    type: mongoose.Schema.ObjectId,
+    ref: 'User'
+  },
   createdAt: {
     type: Date,
     default: Date.now
@@ -79,6 +83,10 @@ WeeklyMenuSchema.statics.getCurrentMenu = async function() {
     .populate({
       path: 'createdBy',
       select: 'name'
+    })
+    .populate({
+      path: 'updatedBy',
+      select: 'name'
     });
 };
 
@@ -104,7 +112,8 @@ WeeklyMenuSchema.statics.copyMenu = async function(sourceWeekId, targetWeekId) {
     weekNumber: targetWeek,
     year: targetYear,
     days: sourceMenu.days,
-    createdBy: sourceMenu.createdBy
+    createdBy: sourceMenu.createdBy,
+    updatedBy: sourceMenu.createdBy // Set updatedBy to the same as createdBy initially
   });
   
   return newMenu.save();

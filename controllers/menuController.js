@@ -69,12 +69,12 @@ exports.getMenuByWeek = asyncHandler(async (req, res, next) => {
 });
 
 /**
- * @desc    Create new weekly menu
+ * @desc    Create new weekly menu or update if exists
  * @route   POST /api/menu
  * @access  Private (Admin only)
  */
 exports.createMenu = asyncHandler(async (req, res, next) => {
-  console.log('Creating menu with data:', JSON.stringify(req.body, null, 2));
+  console.log('Creating/updating menu with data:', JSON.stringify(req.body, null, 2));
   console.log('User ID:', req.user ? req.user.id : 'No user ID found');
   
   try {
@@ -103,14 +103,6 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
     const weekNumStr = weekNumber.toString().padStart(2, '0');
     const weekId = `${year}-${weekNumStr}`;
     console.log('Generated weekId:', weekId);
-  
-    // Check if menu already exists for this week
-    const existingMenu = await WeeklyMenu.findOne({ weekId });
-  
-    if (existingMenu) {
-      console.log('Menu already exists:', existingMenu._id);
-      return next(new ErrorResponse(`Menu already exists for week ${weekId}`, 400));
-    }
   
     // Ensure days array is properly formatted
     if (!Array.isArray(req.body.days)) {
@@ -164,55 +156,76 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
       createdBy: req.user.id
     };
     
-    console.log('Creating menu with processed data:', JSON.stringify(menuData, null, 2));
+    // Check if menu already exists for this week
+    const existingMenu = await WeeklyMenu.findOne({ weekId });
     
-    try {
-      // Create the menu
-      const menu = await WeeklyMenu.create(menuData);
-      console.log('Menu created successfully with ID:', menu._id);
+    let menu;
+    let statusCode;
+    let eventType;
     
-      // Populate the menu
-      await menu.populate([
-        {
-          path: 'days.meals',
-          select: 'name description imageUrl tags'
-        },
-        {
-          path: 'createdBy',
-          select: 'name'
-        }
-      ]);
-    
-      // Emit socket event for real-time updates
-      if (req.io) {
-        console.log('Emitting menu:created event');
-        req.io.emit('menu:created', menu);
-      }
-    
-      console.log('Sending success response');
-      return res.status(201).json({
-        success: true,
-        data: menu
-      });
-    } catch (dbError) {
-      console.error('Database error creating menu:', dbError);
+    if (existingMenu) {
+      console.log('Menu already exists, updating:', existingMenu._id);
       
-      // Check for validation errors
-      if (dbError.name === 'ValidationError') {
-        const messages = Object.values(dbError.errors).map(val => val.message);
-        return next(new ErrorResponse(`Validation error: ${messages.join(', ')}`, 400));
-      }
+      // Update the existing menu
+      menu = await WeeklyMenu.findOneAndUpdate(
+        { weekId }, 
+        menuData,
+        { new: true, runValidators: true }
+      );
       
-      // Check for duplicate key error
-      if (dbError.code === 11000) {
-        return next(new ErrorResponse(`Menu already exists for week ${weekId}`, 400));
-      }
+      statusCode = 200; // OK for update
+      eventType = 'menu:updated';
+    } else {
+      console.log('Creating new menu with processed data:', JSON.stringify(menuData, null, 2));
       
-      return next(new ErrorResponse(`Error creating menu: ${dbError.message}`, 500));
+      // Create a new menu
+      menu = await WeeklyMenu.create(menuData);
+      
+      statusCode = 201; // Created for new resource
+      eventType = 'menu:created';
     }
+    
+    console.log('Menu operation successful with ID:', menu._id);
+    
+    // Populate the menu
+    await menu.populate([
+      {
+        path: 'days.meals',
+        select: 'name description imageUrl tags'
+      },
+      {
+        path: 'createdBy',
+        select: 'name'
+      }
+    ]);
+    
+    // Emit socket event for real-time updates
+    if (req.io) {
+      console.log(`Emitting ${eventType} event`);
+      req.io.emit(eventType, menu);
+    }
+    
+    console.log('Sending success response');
+    return res.status(statusCode).json({
+      success: true,
+      data: menu,
+      message: existingMenu ? 'Menu updated successfully' : 'Menu created successfully'
+    });
   } catch (error) {
-    console.error('Unexpected error in createMenu controller:', error);
-    return next(new ErrorResponse(`Server error: ${error.message}`, 500));
+    console.error('Error in createMenu controller:', error);
+    
+    // Check for validation errors
+    if (error.name === 'ValidationError') {
+      const messages = Object.values(error.errors).map(val => val.message);
+      return next(new ErrorResponse(`Validation error: ${messages.join(', ')}`, 400));
+    }
+    
+    // Check for duplicate key error
+    if (error.code === 11000) {
+      return next(new ErrorResponse(`Menu already exists for week ${req.body.weekId || 'specified'}`, 400));
+    }
+    
+    return next(new ErrorResponse(`Error processing menu: ${error.message}`, 500));
   }
 });
 
