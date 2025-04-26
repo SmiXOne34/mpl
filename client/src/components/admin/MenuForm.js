@@ -185,13 +185,10 @@ const MenuForm = ({
       return;
     }
     
-    // Add the meal to the day's menu
-    // Make sure we're adding just the ID if it's an object
-    const mealToAdd = typeof selectedMeal === 'object' ? selectedMeal._id : selectedMeal;
-    
+    // Add the full meal object to the day's menu for display purposes
     updatedDays[selectedDay] = {
       ...updatedDays[selectedDay],
-      meals: [...updatedDays[selectedDay].meals, mealToAdd]
+      meals: [...updatedDays[selectedDay].meals, selectedMeal]
     };
     
     console.log('Updated days array:', updatedDays);
@@ -208,6 +205,8 @@ const MenuForm = ({
   };
 
   const handleRemoveMeal = (mealId) => {
+    console.log('Removing meal with ID:', mealId);
+    
     const updatedDays = [...menuData.days];
     
     // Ensure the days array has enough elements
@@ -225,16 +224,23 @@ const MenuForm = ({
       updatedDays[selectedDay].meals = [];
     }
     
+    // Filter out the meal with the given ID
+    const filteredMeals = updatedDays[selectedDay].meals.filter(meal => {
+      // Handle both object meals and string meal IDs
+      if (typeof meal === 'object' && meal !== null) {
+        return meal._id !== mealId;
+      }
+      return meal !== mealId;
+    });
+    
+    console.log('Filtered meals:', filteredMeals);
+    
     updatedDays[selectedDay] = {
       ...updatedDays[selectedDay],
-      meals: updatedDays[selectedDay].meals.filter(meal => {
-        // Handle both object meals and string meal IDs
-        if (typeof meal === 'object' && meal !== null) {
-          return meal._id !== mealId;
-        }
-        return meal !== mealId;
-      })
+      meals: filteredMeals
     };
+    
+    console.log('Updated days after removal:', updatedDays);
     
     setMenuData({
       ...menuData,
@@ -346,10 +352,14 @@ const MenuForm = ({
         clearTimeout(safetyTimeout);
         setSuccess(true);
         
-        // Navigate back to admin page after a short delay
-        setTimeout(() => {
-          history.push('/admin');
-        }, 1500);
+        // Only redirect if the user explicitly clicked the save button
+        // Don't redirect after adding a meal
+        if (result) {
+          // Navigate back to admin page after a short delay
+          setTimeout(() => {
+            history.push('/admin');
+          }, 1500);
+        }
       })
       .catch(err => {
         console.error('Error submitting menu:', err);
@@ -481,20 +491,26 @@ const MenuForm = ({
             </Button>
           </div>
           
-          {menuData.days[selectedDay].meals.length > 0 ? (
-            menuData.days[selectedDay].meals.map((meal) => (
-              <Paper key={meal._id} className={classes.mealItem} elevation={2}>
-                <ListItem>
-                  <ListItemText
-                    primary={meal.name}
-                    secondary={
-                      <>
-                        <Typography variant="body2" color="textSecondary">
-                          {meal.description}
-                        </Typography>
-                        <Box mt={1}>
-                          {meal.tags &&
-                            meal.tags.map((tag) => (
+          {menuData.days[selectedDay]?.meals?.length > 0 ? (
+            menuData.days[selectedDay].meals.map((meal) => {
+              // Handle both meal objects and meal IDs
+              const mealId = typeof meal === 'object' ? meal._id : meal;
+              const mealName = typeof meal === 'object' ? meal.name : 'Meal';
+              const mealDescription = typeof meal === 'object' ? meal.description : '';
+              const mealTags = typeof meal === 'object' && Array.isArray(meal.tags) ? meal.tags : [];
+              
+              return (
+                <Paper key={mealId} className={classes.mealItem} elevation={2}>
+                  <ListItem>
+                    <ListItemText
+                      primary={mealName}
+                      secondary={
+                        <>
+                          <Typography variant="body2" color="textSecondary">
+                            {mealDescription}
+                          </Typography>
+                          <Box mt={1}>
+                            {mealTags.map((tag) => (
                               <Chip
                                 key={tag}
                                 label={tag}
@@ -502,22 +518,23 @@ const MenuForm = ({
                                 className={classes.chip}
                               />
                             ))}
-                        </Box>
-                      </>
-                    }
-                  />
-                  <ListItemSecondaryAction>
-                    <IconButton
-                      edge="end"
-                      color="secondary"
-                      onClick={() => handleRemoveMeal(meal._id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-                  </ListItemSecondaryAction>
-                </ListItem>
-              </Paper>
-            ))
+                          </Box>
+                        </>
+                      }
+                    />
+                    <ListItemSecondaryAction>
+                      <IconButton
+                        edge="end"
+                        color="secondary"
+                        onClick={() => handleRemoveMeal(mealId)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </ListItemSecondaryAction>
+                  </ListItem>
+                </Paper>
+              );
+            })
           ) : (
             <Paper className={classes.noMeals}>
               <Typography variant="body1" paragraph>
