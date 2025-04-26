@@ -91,7 +91,7 @@ JWT_COOKIE_EXPIRE=30
 npm run dev
 ```
 
-The server will run on http://localhost:5000 and the client on http://localhost:3000
+The server will run on http://localhost:9091 and the client on http://localhost:3000
 
 ### Demo Data
 
