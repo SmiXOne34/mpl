@@ -2,14 +2,25 @@ import axios from 'axios';
 
 // Determine the base URL based on environment
 const getBaseUrl = () => {
+  // Log the environment for debugging
+  console.log('Environment:', process.env.NODE_ENV);
+  console.log('REACT_APP_API_URL:', process.env.REACT_APP_API_URL);
+  
   if (process.env.NODE_ENV === 'production') {
-    // In production, use the same domain (relative URL)
+    // In production, always use a relative URL to avoid CORS issues
+    console.log('Using production API URL: /api');
     return '/api';
   } else if (process.env.REACT_APP_API_URL) {
     // Use environment variable if available
+    console.log(`Using environment API URL: ${process.env.REACT_APP_API_URL}`);
+    // Check if it already includes /api
+    if (process.env.REACT_APP_API_URL.endsWith('/api')) {
+      return process.env.REACT_APP_API_URL;
+    }
     return `${process.env.REACT_APP_API_URL}/api`;
   } else {
     // Default development server
+    console.log('Using default development API URL: http://localhost:9091/api');
     return 'http://localhost:9091/api';
   }
 };

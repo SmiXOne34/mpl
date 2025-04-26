@@ -102,9 +102,30 @@ const corsOptions = {
 // Apply CORS middleware
 app.use(cors(corsOptions));
 
-// Log all requests for debugging
+// Create logs directory if it doesn't exist
+const fs = require('fs');
+const logsDir = path.join(__dirname, 'logs');
+if (!fs.existsSync(logsDir)) {
+  fs.mkdirSync(logsDir);
+}
+
+// Set up request logging with timestamps
 app.use((req, res, next) => {
-  console.log(`${req.method} ${req.url}`);
+  const timestamp = new Date().toISOString();
+  const logMessage = `[${timestamp}] ${req.method} ${req.url} (Origin: ${req.headers.origin || 'unknown'})`;
+  console.log(logMessage);
+  
+  // Log to file in production
+  if (process.env.NODE_ENV === 'production') {
+    fs.appendFile(
+      path.join(logsDir, 'requests.log'),
+      logMessage + '\n',
+      err => {
+        if (err) console.error('Error writing to log file:', err);
+      }
+    );
+  }
+  
   next();
 });
 
@@ -146,6 +167,41 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Diagnostic endpoint
+app.get('/api/diagnostic', (req, res) => {
+  // Collect system information
+  const os = require('os');
+  const diagnosticInfo = {
+    server: {
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      nodeVersion: process.version,
+      platform: process.platform,
+      arch: process.arch,
+      memory: {
+        total: `${Math.round(os.totalmem() / (1024 * 1024))} MB`,
+        free: `${Math.round(os.freemem() / (1024 * 1024))} MB`,
+        usage: `${Math.round((process.memoryUsage().rss / os.totalmem()) * 100)}%`
+      }
+    },
+    request: {
+      headers: req.headers,
+      ip: req.ip,
+      originalUrl: req.originalUrl,
+      protocol: req.protocol,
+      secure: req.secure
+    },
+    environment: {
+      NODE_ENV: process.env.NODE_ENV,
+      PORT: process.env.PORT,
+      FRONTEND_URL: process.env.FRONTEND_URL,
+      CLIENT_URL: process.env.CLIENT_URL
+    }
+  };
+  
+  res.status(200).json(diagnosticInfo);
+});
+
 // Mount routers
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
@@ -158,12 +214,31 @@ app.use('/api/ai', require('./routes/api/ai'));
 
 // Serve static assets in production
 if (process.env.NODE_ENV === 'production') {
-  // Set static folder
-  app.use(express.static('client/build'));
+  console.log('Running in production mode - serving static files from client/build');
+  
+  // Set static folder with proper caching
+  app.use(express.static('client/build', {
+    maxAge: '1d', // Cache static assets for 1 day
+    setHeaders: (res, path) => {
+      // Don't cache HTML files
+      if (path.endsWith('.html')) {
+        res.setHeader('Cache-Control', 'no-cache');
+      }
+    }
+  }));
 
-  app.get('*', (req, res) => {
+  // All other routes should serve the index.html
+  app.get('*', (req, res, next) => {
+    // Skip API routes
+    if (req.path.startsWith('/api/')) {
+      return next();
+    }
+    
+    console.log(`Serving index.html for path: ${req.path}`);
     res.sendFile(path.resolve(__dirname, 'client', 'build', 'index.html'));
   });
+} else {
+  console.log('Running in development mode - not serving static files');
 }
 
 // Error handler middleware

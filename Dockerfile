@@ -20,6 +20,10 @@ RUN cd client && npm install --legacy-peer-deps
 # Copy the rest of the application
 COPY . .
 
+# Set environment variables for the build
+ENV NODE_ENV=production
+ENV REACT_APP_API_URL=/api
+
 # Build the React app
 RUN cd client && npm run build
 
@@ -29,5 +33,8 @@ EXPOSE 9091
 # Add healthcheck
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 CMD wget -q --spider http://localhost:9091/api/health || exit 1
 
+# Create a startup script
+RUN echo '#!/bin/sh\n\necho "Starting MealWise Family application..."\necho "Environment: $NODE_ENV"\necho "API URL: $REACT_APP_API_URL"\necho "Server port: $PORT"\n\nnode server.js' > /app/start.sh && chmod +x /app/start.sh
+
 # Command to run the application
-CMD ["node", "server.js"]
+CMD ["/app/start.sh"]

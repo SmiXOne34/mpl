@@ -123,103 +123,60 @@ export const login = (email, password) => async dispatch => {
   // Dispatch a loading action to show a spinner
   dispatch({ type: AUTH_LOADING });
   
-  // First, try using the standard API utility
-  try {
-    console.log('Making login request to /auth/login using api utility');
-    const res = await api.post('/auth/login', { email, password });
-    
-    console.log('Login successful, response:', res.data);
-    
-    dispatch({
-      type: LOGIN_SUCCESS,
-      payload: res.data
-    });
-
-    // Initialize socket connection with the new token
-    if (res.data && res.data.token) {
-      console.log('Initializing socket connection after login');
-      initSocket(res.data.token);
-    }
-
-    // Load user after successful login
-    dispatch(loadUser());
-    return; // Exit early if successful
-  } catch (err) {
-    console.error('First login attempt failed:', err);
-    // Continue to fallback methods
+  // Log browser information for debugging
+  console.log('Browser information:', {
+    userAgent: navigator.userAgent,
+    location: window.location.href,
+    protocol: window.location.protocol,
+    host: window.location.host
+  });
+  
+  // Determine the API URL based on environment
+  let apiUrl;
+  if (process.env.NODE_ENV === 'production') {
+    // In production, use a relative URL to avoid CORS issues
+    apiUrl = '/api/auth/login';
+  } else if (process.env.REACT_APP_API_URL) {
+    // Use environment variable if available
+    apiUrl = `${process.env.REACT_APP_API_URL}/auth/login`;
+  } else {
+    // Default development server
+    apiUrl = 'http://localhost:9091/api/auth/login';
   }
   
-  // Second attempt: Try using axios directly with absolute URL
+  console.log(`Using API URL: ${apiUrl}`);
+  
   try {
-    console.log('Making second login attempt with axios directly');
+    // Use a simple fetch request with credentials
+    console.log('Making login request with fetch API');
     
-    // Determine the API URL based on environment
-    const apiUrl = process.env.NODE_ENV === 'production' 
-      ? `${window.location.origin}/api/auth/login`
-      : 'http://localhost:9091/api/auth/login';
-      
-    console.log(`Using direct axios with URL: ${apiUrl}`);
-    
-    const axiosResponse = await axios({
-      method: 'post',
-      url: apiUrl,
-      data: { email, password },
+    const response = await fetch(apiUrl, {
+      method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Accept': 'application/json'
       },
-      withCredentials: true
-    });
-    
-    console.log('Second login attempt successful:', axiosResponse.data);
-    
-    dispatch({
-      type: LOGIN_SUCCESS,
-      payload: axiosResponse.data
-    });
-
-    // Initialize socket connection with the new token
-    if (axiosResponse.data && axiosResponse.data.token) {
-      console.log('Initializing socket connection after second login attempt');
-      initSocket(axiosResponse.data.token);
-    }
-
-    // Load user after successful login
-    dispatch(loadUser());
-    return; // Exit early if successful
-  } catch (err) {
-    console.error('Second login attempt failed:', err);
-    // Continue to final fallback
-  }
-  
-  // Final attempt: Try using fetch API as a last resort
-  try {
-    console.log('Making final login attempt with fetch API');
-    
-    // Determine the API URL based on environment
-    const apiUrl = process.env.NODE_ENV === 'production' 
-      ? `${window.location.origin}/api/auth/login`
-      : 'http://localhost:9091/api/auth/login';
-      
-    console.log(`Using fetch with URL: ${apiUrl}`);
-    
-    const fetchResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
       body: JSON.stringify({ email, password }),
-      credentials: 'include'
+      credentials: 'include',
+      mode: 'cors'
     });
     
-    console.log('Fetch response status:', fetchResponse.status);
+    console.log('Fetch response status:', response.status);
     
-    if (!fetchResponse.ok) {
-      throw new Error(`Fetch failed with status ${fetchResponse.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Server error response:', errorText);
+      throw new Error(`Server responded with status: ${response.status}`);
     }
     
-    const data = await fetchResponse.json();
-    console.log('Fetch login successful:', data);
+    const data = await response.json();
+    console.log('Login successful, response:', data);
+    
+    // Store token in localStorage
+    if (data && data.token) {
+      localStorage.setItem('token', data.token);
+      console.log('Token stored in localStorage');
+    }
     
     dispatch({
       type: LOGIN_SUCCESS,
@@ -228,31 +185,24 @@ export const login = (email, password) => async dispatch => {
     
     // Initialize socket connection with the new token
     if (data && data.token) {
-      console.log('Initializing socket connection after fetch login');
+      console.log('Initializing socket connection after login');
       initSocket(data.token);
-      
-      // Load user after successful login
-      dispatch(loadUser());
     }
+    
+    // Load user after successful login
+    dispatch(loadUser());
+    
   } catch (err) {
-    console.error('All login attempts failed:', err);
+    console.error('Login failed:', err);
     
     // Determine the most appropriate error message
-    let errorMessage = 'Login failed after multiple attempts. Please check your network connection and try again.';
+    let errorMessage = 'Login failed. Please check your credentials and try again.';
     
-    if (err.response) {
-      // The request was made and the server responded with a status code
-      // that falls out of the range of 2xx
-      errorMessage = err.response.data?.error || `Server error: ${err.response.status}`;
-    } else if (err.request) {
-      // The request was made but no response was received
-      errorMessage = 'No response from server. The server might be down or unreachable.';
-    } else if (err.message) {
-      // Something happened in setting up the request that triggered an Error
+    if (err.message) {
       errorMessage = `Error: ${err.message}`;
     }
     
-    // Dispatch the final error
+    // Dispatch the error
     dispatch({
       type: LOGIN_FAIL,
       payload: errorMessage
@@ -261,10 +211,56 @@ export const login = (email, password) => async dispatch => {
     // Log diagnostic information
     console.error('Login diagnostic information:', {
       environment: process.env.NODE_ENV,
-      apiBaseUrl: api.defaults.baseURL,
+      apiUrl: apiUrl,
       browserLocation: window.location.href,
       userAgent: navigator.userAgent
     });
+    
+    // Try a direct XHR request as a last resort
+    console.log('Attempting XHR request as fallback');
+    
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', apiUrl, true);
+    xhr.setRequestHeader('Content-Type', 'application/json');
+    xhr.withCredentials = true;
+    
+    xhr.onload = function() {
+      console.log('XHR status:', xhr.status);
+      console.log('XHR response:', xhr.responseText);
+      
+      if (xhr.status >= 200 && xhr.status < 300) {
+        try {
+          const data = JSON.parse(xhr.responseText);
+          console.log('XHR login successful:', data);
+          
+          // Store token in localStorage
+          if (data && data.token) {
+            localStorage.setItem('token', data.token);
+          }
+          
+          dispatch({
+            type: LOGIN_SUCCESS,
+            payload: data
+          });
+          
+          // Initialize socket connection with the new token
+          if (data && data.token) {
+            initSocket(data.token);
+          }
+          
+          // Load user after successful login
+          dispatch(loadUser());
+        } catch (parseErr) {
+          console.error('Error parsing XHR response:', parseErr);
+        }
+      }
+    };
+    
+    xhr.onerror = function() {
+      console.error('XHR request failed');
+    };
+    
+    xhr.send(JSON.stringify({ email, password }));
   }
 };
 
