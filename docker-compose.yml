@@ -8,14 +8,15 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=9091
-      - MONGO_URI=${MONGO_URI}
+      - MONGO_URI=mongodb://mongo:27017/mealwise
       - JWT_SECRET=${JWT_SECRET}
       - JWT_EXPIRE=${JWT_EXPIRE}
       - JWT_COOKIE_EXPIRE=${JWT_COOKIE_EXPIRE}
       - FRONTEND_URL=${FRONTEND_URL}
     restart: always
     depends_on:
-      - mongo
+      mongo:
+        condition: service_healthy
     networks:
       - mealwise-network
 
@@ -28,6 +29,12 @@ services:
     networks:
       - mealwise-network
     restart: always
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
 networks:
   mealwise-network:

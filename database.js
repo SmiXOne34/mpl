@@ -1,5 +1,8 @@
 const mongoose = require('mongoose');
 
+// Fix deprecation warning
+mongoose.set('strictQuery', true);
+
 /**
  * Database connection utility for MealWise Family application
  * Establishes connection to MongoDB and handles connection events
@@ -7,7 +10,8 @@ const mongoose = require('mongoose');
 const connectDB = async () => {
   try {
     // Get MongoDB connection string from environment variables
-    const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/mealwise';
+    // In Docker environment, use the service name 'mongo' instead of localhost
+    const mongoURI = process.env.MONGO_URI || 'mongodb://mongo:27017/mealwise';
     
     // Connection options
     const options = {

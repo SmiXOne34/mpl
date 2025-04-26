@@ -23,5 +23,12 @@ RUN cd client && npm run build
 # Expose the port the app runs on
 EXPOSE 9091
 
+# Create a healthcheck script
+RUN echo '#!/bin/sh\nwget -q --spider http://localhost:9091/api/auth/me || exit 1' > /app/healthcheck.sh && \
+    chmod +x /app/healthcheck.sh
+
+# Add healthcheck
+HEALTHCHECK --interval=30s --timeout=10s --start-period=30s --retries=3 CMD [ "/app/healthcheck.sh" ]
+
 # Command to run the application
 CMD ["node", "server.js"]
