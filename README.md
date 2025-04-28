@@ -91,7 +91,7 @@ JWT_COOKIE_EXPIRE=30
 npm run dev
 ```
 
-The server will run on http://localhost:9091 and the client on http://localhost:3000
+The server will run on http://localhost:9092 and the client on http://localhost:3000
 
 ### Demo Data
 
@@ -140,6 +140,54 @@ For detailed information about the project, please refer to:
 - [API Documentation](docs/API_DOCUMENTATION.md) - Detailed API endpoints and usage
 - [User Guide](docs/USER_GUIDE.md) - Comprehensive guide for end users
 - [Deployment Guide](docs/DEPLOYMENT_GUIDE.md) - Instructions for deploying the application
+
+## Deployment on Dokploy
+
+### Prerequisites
+
+1. A Dokploy account
+2. Dokploy CLI installed on your machine
+3. Access to your GitHub repository
+
+### Deployment Steps
+
+1. **Login to Dokploy**
+
+```bash
+dokploy login
+```
+
+2. **Initialize Dokploy in your project**
+
+```bash
+dokploy init
+```
+
+3. **Deploy your application**
+
+```bash
+dokploy deploy
+```
+
+4. **Monitor your deployment**
+
+```bash
+dokploy logs
+```
+
+5. **Access your application**
+
+Once deployed, your application will be available at the domain specified in your dokploy.yml file.
+
+### Environment Variables
+
+The following environment variables are required for deployment:
+
+- `MONGO_URI`: MongoDB connection string
+- `JWT_SECRET`: Secret key for JWT authentication
+- `CLIENT_URL`: URL of the client application
+
+These are configured in the .env.dokploy file and will be automatically used during deployment.
 
 ## Testing
 

@@ -5,6 +5,8 @@ node_modules/
 .env
 .env.*
 !.env.example
+!.env.dokploy
+!dokploy.yml
 
 # Server port file
 .server-port

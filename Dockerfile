@@ -28,10 +28,10 @@ ENV REACT_APP_API_URL=/api
 RUN cd client && npm run build
 
 # Expose the port the app runs on
-EXPOSE 9091
+EXPOSE 9092
 
 # Add healthcheck
-HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 CMD wget -q --spider http://localhost:9091/api/health || exit 1
+HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 CMD wget -q --spider http://localhost:9092/api/health || exit 1
 
 # Create a startup script
 RUN echo '#!/bin/sh\n\necho "Starting MealWise Family application..."\necho "Environment: $NODE_ENV"\necho "API URL: $REACT_APP_API_URL"\necho "Server port: $PORT"\n\nnode server.js' > /app/start.sh && chmod +x /app/start.sh

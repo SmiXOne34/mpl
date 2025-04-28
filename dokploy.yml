@@ -1,0 +1,52 @@
+version: '1'
+
+app:
+  name: mealwise
+  repository: https://github.com/SmiXOne34/mealwise.git
+  branch: main
+  
+  # Build configuration
+  build:
+    dockerfile: Dockerfile
+    context: .
+  
+  # Deployment configuration
+  deploy:
+    replicas: 1
+    port: 9092
+    health_check:
+      path: /api/health
+      port: 9092
+      initial_delay_seconds: 40
+      period_seconds: 30
+      timeout_seconds: 10
+      failure_threshold: 3
+  
+  # Environment variables
+  environment:
+    - NODE_ENV=production
+    - PORT=9092
+    - MONGO_URI=${MONGO_URI}
+    - JWT_SECRET=${JWT_SECRET}
+    - JWT_EXPIRE=30d
+    - JWT_COOKIE_EXPIRE=30
+    - CLIENT_URL=${CLIENT_URL}
+    - REACT_APP_API_URL=/api
+  
+  # Resource limits
+  resources:
+    cpu: 1
+    memory: 1Gi
+  
+  # Persistent storage
+  volumes:
+    - name: logs
+      mount_path: /app/logs
+      size: 1Gi
+  
+  # Domain configuration
+  domains:
+    - domain: mealwise-family.com
+      path: /
+    - domain: www.mealwise-family.com
+      path: /
