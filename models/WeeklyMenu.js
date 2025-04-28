@@ -30,7 +30,7 @@ const WeeklyMenuSchema = new mongoose.Schema({
   createdBy: {
     type: mongoose.Schema.ObjectId,
     ref: 'User',
-    required: true
+    required: [true, 'Created by user is required']
   },
   updatedBy: {
     type: mongoose.Schema.ObjectId,
@@ -91,7 +91,7 @@ WeeklyMenuSchema.statics.getCurrentMenu = async function() {
 };
 
 // Static method to copy menu from one week to another
-WeeklyMenuSchema.statics.copyMenu = async function(sourceWeekId, targetWeekId) {
+WeeklyMenuSchema.statics.copyMenu = async function(sourceWeekId, targetWeekId, userId) {
   const sourceMenu = await this.findOne({ weekId: sourceWeekId });
   
   if (!sourceMenu) {
@@ -112,8 +112,8 @@ WeeklyMenuSchema.statics.copyMenu = async function(sourceWeekId, targetWeekId) {
     weekNumber: targetWeek,
     year: targetYear,
     days: sourceMenu.days,
-    createdBy: sourceMenu.createdBy,
-    updatedBy: sourceMenu.createdBy // Set updatedBy to the same as createdBy initially
+    createdBy: userId || sourceMenu.createdBy,
+    updatedBy: userId || sourceMenu.createdBy // Set updatedBy to the same as createdBy initially
   });
   
   return newMenu.save();

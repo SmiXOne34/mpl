@@ -124,14 +124,7 @@ const Navbar = ({ auth: { isAuthenticated, user }, logout }) => {
         >
           Select Meals
         </Button>
-        <Button
-          color="inherit"
-          component={LinkBehavior}
-          to="/meals/weekly"
-          className={classes.navLink}
-        >
-          Weekly Menu
-        </Button>
+        {/* Weekly Menu button removed */}
         <Button
           color="inherit"
           component={LinkBehavior}
@@ -141,14 +134,17 @@ const Navbar = ({ auth: { isAuthenticated, user }, logout }) => {
           History
         </Button>
         {user && user.role === 'admin' && (
-          <Button
-            color="inherit"
-            component={LinkBehavior}
-            to="/admin"
-            className={classes.navLink}
-          >
-            Admin
-          </Button>
+          <>
+            <Button
+              color="inherit"
+              component={LinkBehavior}
+              to="/admin"
+              className={classes.navLink}
+            >
+              Admin
+            </Button>
+            {/* Week Manager link removed from navbar */}
+          </>
         )}
 
         <Box className={classes.userInfo}>
@@ -297,12 +293,7 @@ const Navbar = ({ auth: { isAuthenticated, user }, logout }) => {
               </ListItemIcon>
               <ListItemText primary="Select Meals" />
             </ListItem>
-            <ListItem button component={LinkBehavior} to="/meals/weekly" onClick={handleDrawerToggle}>
-              <ListItemIcon>
-                <ViewWeek />
-              </ListItemIcon>
-              <ListItemText primary="Weekly Menu" />
-            </ListItem>
+            {/* Weekly Menu item removed */}
             <ListItem button component={LinkBehavior} to="/meals/history" onClick={handleDrawerToggle}>
               <ListItemIcon>
                 <CalendarToday />
@@ -328,6 +319,12 @@ const Navbar = ({ auth: { isAuthenticated, user }, logout }) => {
                     <CameraAlt />
                   </ListItemIcon>
                   <ListItemText primary="AI Camera Generator" />
+                </ListItem>
+                <ListItem button component={LinkBehavior} to="/admin/weekmanager" onClick={handleDrawerToggle}>
+                  <ListItemIcon>
+                    <ViewWeek />
+                  </ListItemIcon>
+                  <ListItemText primary="Week Manager" />
                 </ListItem>
               </>
             )}

@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { Link as RouterLink } from 'react-router-dom';
 import LinkBehavior from '../routing/LinkBehavior';
 import { connect } from 'react-redux';
 import PropTypes from 'prop-types';
 import { getWeeklyMenu } from '../../actions/menuActions';
 import { getMeals } from '../../actions/mealActions';
 import { getUsers } from '../../actions/userActions';
-import { getVotingStatus } from '../../actions/timeActions';
 import { getDayName } from '../../utils/dateUtils';
 
 // Material UI
@@ -19,7 +17,6 @@ import {
   Button,
   Card,
   CardContent,
-  CardActions,
   Divider,
   List,
   ListItem,
@@ -35,9 +32,8 @@ import {
   People,
   Add,
   Edit,
-  Delete,
-  AccessTime,
   Settings,
+  CalendarToday,
   EmojiObjects,
   CameraAlt
 } from '@material-ui/icons';
@@ -95,11 +91,9 @@ const AdminDashboard = ({
   menu: { currentMenu, loading: menuLoading },
   meal: { meals, loading: mealLoading },
   user: { users, loading: userLoading },
-  time: { votingStatus, loading: timeLoading },
   getWeeklyMenu,
   getMeals,
-  getUsers,
-  getVotingStatus
+  getUsers
 }) => {
   const classes = useStyles();
   const [currentDay] = useState(new Date().getDay());
@@ -108,10 +102,9 @@ const AdminDashboard = ({
     getWeeklyMenu();
     getMeals();
     getUsers();
-    getVotingStatus();
-  }, [getWeeklyMenu, getMeals, getUsers, getVotingStatus]);
+  }, [getWeeklyMenu, getMeals, getUsers]);
 
-  const isLoading = menuLoading || mealLoading || userLoading || timeLoading;
+  const isLoading = menuLoading || mealLoading || userLoading;
 
   if (isLoading) {
     return (
@@ -176,12 +169,19 @@ const AdminDashboard = ({
         <Grid item xs={12} sm={6} md={3}>
           <Card className={classes.statCard}>
             <CardContent>
-              <AccessTime className={classes.statIcon} />
+              <Settings className={classes.statIcon} />
               <Typography variant="h5" component="h2" gutterBottom>
-                Voting Status
+                System Settings
               </Typography>
               <Typography className={classes.statNumber}>
-                {votingStatus ? (votingStatus.isOpen ? 'Open' : 'Closed') : 'Unknown'}
+                <Button
+                  variant="outlined"
+                  size="small"
+                  component={LinkBehavior}
+                  to="/admin/settings"
+                >
+                  Configure
+                </Button>
               </Typography>
             </CardContent>
           </Card>
@@ -217,8 +217,18 @@ const AdminDashboard = ({
                 component={LinkBehavior}
                 to="/admin/menu"
                 startIcon={<RestaurantMenu />}
+                style={{ marginRight: 8 }}
               >
                 Manage Weekly Menu
+              </Button>
+              <Button
+                variant="outlined"
+                color="secondary"
+                component={LinkBehavior}
+                to="/admin/weekmanager"
+                startIcon={<CalendarToday />}
+              >
+                Week Manager
               </Button>
             </Box>
 
@@ -445,29 +455,13 @@ const AdminDashboard = ({
         <Box display="flex" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="h6" gutterBottom>
-              Voting Status
+              System Configuration
             </Typography>
             <Typography variant="body1">
-              {votingStatus ? (
-                votingStatus.isOpen
-                  ? `Voting is currently OPEN. Closes in ${votingStatus.hoursRemaining} hours and ${votingStatus.minutesRemaining} minutes.`
-                  : `Voting is currently CLOSED. Opens in ${votingStatus.hoursRemaining} hours and ${votingStatus.minutesRemaining} minutes.`
-              ) : (
-                "Voting status information is not available."
-              )}
+              Configure application settings and preferences.
             </Typography>
           </Box>
           <Box>
-            <Button
-              variant="contained"
-              color="primary"
-              startIcon={<AccessTime />}
-              component={LinkBehavior}
-              to="/admin/voting"
-              style={{ marginRight: '8px' }}
-            >
-              Voting Settings
-            </Button>
             <Button
               variant="contained"
               color="secondary"
@@ -489,11 +483,9 @@ AdminDashboard.propTypes = {
   menu: PropTypes.object.isRequired,
   meal: PropTypes.object.isRequired,
   user: PropTypes.object.isRequired,
-  time: PropTypes.object.isRequired,
   getWeeklyMenu: PropTypes.func.isRequired,
   getMeals: PropTypes.func.isRequired,
   getUsers: PropTypes.func.isRequired,
-  getVotingStatus: PropTypes.func.isRequired,
 };
 
 const mapStateToProps = (state) => ({
@@ -501,12 +493,11 @@ const mapStateToProps = (state) => ({
   menu: state.menu,
   meal: state.meal,
   user: state.user,
-  time: state.time,
+
 });
 
 export default connect(mapStateToProps, {
   getWeeklyMenu,
   getMeals,
-  getUsers,
-  getVotingStatus,
+  getUsers
 })(AdminDashboard);

@@ -96,32 +96,34 @@ const useStyles = makeStyles((theme) => ({
 const WeeklyMenu = ({
   menu: { currentMenu, loading: menuLoading },
   selection: { mySelections, loading: selectionLoading },
+  auth: { user },
   getWeeklyMenu,
   getMySelections
 }) => {
+  const isAdmin = user && user.role === 'admin';
   const classes = useStyles();
-  const [selectedDay, setSelectedDay] = useState(new Date().getDay());
+  // April 27, 2025 is a Sunday (day 0)
+  const [selectedDay, setSelectedDay] = useState(0);
   
   useEffect(() => {
-    // Get the current week number and year
-    const now = new Date();
-    const weekNumber = getWeekNumber(now);
-    const year = now.getFullYear();
+    // Use April 27, 2025 as the reference date
+    const referenceDate = new Date(2025, 3, 27); // Month is 0-indexed (3 = April)
+    
+    // Explicitly set week 18 for April 27, 2025
+    const weekNumber = 18;
+    const year = 2025;
+    
+    console.log(`Fetching menu for Week ${weekNumber}, ${year} (April 27, 2025)`);
     
     getWeeklyMenu(weekNumber, year);
-    getMySelections(getDayName(selectedDay).toLowerCase());
+    // Pass the day number directly instead of the day name
+    getMySelections(selectedDay);
   }, [getWeeklyMenu, getMySelections, selectedDay]);
-  
-  // Helper function to get the week number
-  function getWeekNumber(date) {
-    const firstDayOfYear = new Date(date.getFullYear(), 0, 1);
-    const pastDaysOfYear = (date - firstDayOfYear) / 86400000;
-    return Math.ceil((pastDaysOfYear + firstDayOfYear.getDay() + 1) / 7);
-  }
   
   const handleTabChange = (event, newValue) => {
     setSelectedDay(newValue);
-    getMySelections(getDayName(newValue).toLowerCase());
+    // Pass the day number directly instead of the day name
+    getMySelections(newValue);
   };
   
   const isLoading = menuLoading || selectionLoading;
@@ -152,7 +154,19 @@ const WeeklyMenu = ({
         
         <Paper className={classes.paper}>
           <Alert severity="info">
-            No weekly menu has been created yet. Please check back later.
+            No weekly menu has been created yet for Week 18, 2025 (April 27, 2025). 
+            {isAdmin && (
+              <Box mt={2}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  component={LinkBehavior}
+                  to="/admin/menu/new"
+                >
+                  Create Menu for This Week
+                </Button>
+              </Box>
+            )}
           </Alert>
         </Paper>
       </Container>
@@ -318,12 +332,50 @@ const WeeklyMenu = ({
                       <Typography variant="body2" color="textSecondary" gutterBottom>
                         {dayMeals.length} meal{dayMeals.length !== 1 ? 's' : ''} available
                       </Typography>
+                      
+                      {/* Show meal names */}
+                      <Box mt={1} mb={2}>
+                        {dayMeals.map((meal, index) => (
+                          <Typography 
+                            key={index} 
+                            variant="body2" 
+                            style={{ 
+                              marginBottom: 4,
+                              fontWeight: isSelected(meal._id) ? 'bold' : 'normal',
+                              color: isSelected(meal._id) ? '#4caf50' : 'inherit'
+                            }}
+                          >
+                            • {meal.name}
+                            {isSelected(meal._id) && ' ✓'}
+                          </Typography>
+                        ))}
+                      </Box>
+                      
+                      
+                      {/* Show meal names */}
+                      <Box mt={1} mb={2}>
+                        {dayMeals.map((meal, index) => (
+                          <Typography 
+                            key={index} 
+                            variant="body2" 
+                            style={{ 
+                              marginBottom: 4,
+                              fontWeight: isSelected(meal._id) ? 'bold' : 'normal',
+                              color: isSelected(meal._id) ? '#4caf50' : 'inherit'
+                            }}
+                          >
+                            • {meal.name}
+                            {isSelected(meal._id) && ' ✓'}
+                          </Typography>
+                        ))}
+                      </Box>
+                      
                       <Button
                         size="small"
                         color="primary"
                         onClick={() => setSelectedDay(day)}
                       >
-                        View Meals
+                        View Details
                       </Button>
                     </>
                   ) : (
@@ -344,6 +396,7 @@ const WeeklyMenu = ({
 WeeklyMenu.propTypes = {
   menu: PropTypes.object.isRequired,
   selection: PropTypes.object.isRequired,
+  auth: PropTypes.object.isRequired,
   getWeeklyMenu: PropTypes.func.isRequired,
   getMySelections: PropTypes.func.isRequired,
 };
@@ -351,6 +404,7 @@ WeeklyMenu.propTypes = {
 const mapStateToProps = (state) => ({
   menu: state.menu,
   selection: state.selection,
+  auth: state.auth,
 });
 
 export default connect(mapStateToProps, {

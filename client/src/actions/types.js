@@ -37,6 +37,7 @@ export const GENERATE_MEAL = 'GENERATE_MEAL';
 // Menu Types
 export const GET_WEEKLY_MENU = 'GET_WEEKLY_MENU';
 export const GET_MENU_BY_WEEK = 'GET_MENU_BY_WEEK';
+export const GET_ALL_MENUS = 'GET_ALL_MENUS';
 export const CREATE_MENU = 'CREATE_MENU';
 export const UPDATE_MENU = 'UPDATE_MENU';
 export const DELETE_MENU = 'DELETE_MENU';

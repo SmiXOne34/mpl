@@ -16,7 +16,8 @@ import {
   Box,
   CircularProgress,
   makeStyles,
-  Paper
+  Paper,
+  Snackbar
 } from '@material-ui/core';
 import { Alert } from '@material-ui/lab';
 import { LockOutlined } from '@material-ui/icons';
@@ -64,17 +65,55 @@ const Login = ({
     password: '',
     isSubmitting: false
   });
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'error'
+  });
 
   const { email, password, isSubmitting } = formData;
 
   useEffect(() => {
+    // Show popup for any login error
+    if (error) {
+      let message = error;
+      let severity = 'error';
+      
+      // Special handling for specific error types
+      if (error.includes('User not found') || error.includes('(404)')) {
+        message = 'User not found. Please check your email or register a new account.';
+      } else if (error.includes('Invalid password') || error.includes('(401)')) {
+        message = 'Invalid password. Please try again.';
+      } else if (error.includes('Server error') || error.includes('(500)')) {
+        message = 'Server error. Please try again later.';
+      } else if (error.includes('Network Error')) {
+        message = 'Network error. Please check your internet connection.';
+      }
+      
+      // Log the error for debugging
+      console.log('Login error detected:', error);
+      
+      setSnackbar({
+        open: true,
+        message,
+        severity
+      });
+    }
+    
     return () => {
       clearErrors();
     };
-  }, [clearErrors]);
+  }, [error, clearErrors]);
 
   const onChange = (e) =>
     setFormData({ ...formData, [e.target.name]: e.target.value });
+    
+  const handleSnackbarClose = () => {
+    setSnackbar({
+      ...snackbar,
+      open: false
+    });
+  };
 
   const onSubmit = async (e) => {
     e.preventDefault();
@@ -163,6 +202,30 @@ const Login = ({
           </Grid>
         </form>
       </Paper>
+      
+      {/* Error Popup */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={10000} 
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        style={{ marginTop: '20px', zIndex: 9999 }}
+      >
+        <Alert 
+          onClose={handleSnackbarClose} 
+          severity={snackbar.severity} 
+          variant="filled"
+          style={{ 
+            minWidth: '350px', 
+            fontSize: '1.1rem',
+            padding: '12px 20px',
+            boxShadow: '0 6px 16px rgba(0,0,0,0.2)',
+            fontWeight: 500
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

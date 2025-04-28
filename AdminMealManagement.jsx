@@ -304,12 +304,41 @@ const AdminMealManagement = () => {
       return;
     }
     
-    const weekId = menu ? menu.weekId : require('../utils/weekUtils').getCurrentWeekId();
+    const weekUtils = require('../utils/weekUtils');
+    const weekId = menu ? menu.weekId : weekUtils.getCurrentWeekId();
+    
+    // Parse the weekId to get year and week number
+    let year, weekNumber;
+    
+    if (weekId && weekId.includes('-')) {
+      const parts = weekId.split('-');
+      year = parseInt(parts[0], 10);
+      weekNumber = parseInt(parts[1], 10);
+    } else {
+      // If weekId is not in the expected format, use current date
+      const currentDate = new Date();
+      year = currentDate.getFullYear();
+      weekNumber = weekUtils.getWeekNumber(currentDate);
+    }
+    
+    // Create days array with meals
+    const days = Array(7).fill().map(() => ({ meals: [] }));
+    
+    // Distribute meals across days (one meal per day)
+    selectedMeals.forEach((mealId, index) => {
+      if (index < 7) {
+        days[index].meals = [mealId];
+      }
+    });
     
     const menuData = {
       weekId,
-      meals: selectedMeals
+      weekNumber,
+      year,
+      days
     };
+    
+    console.log('Saving menu with data:', menuData);
     
     if (menu) {
       dispatch(updateMenu(weekId, menuData));

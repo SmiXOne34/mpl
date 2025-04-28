@@ -367,11 +367,11 @@ const SelectionHistory = ({
               variant="outlined"
               color="primary"
               component={RouterLink}
-              to="/meals/weekly"
+              to="/meals/select"
               fullWidth
               style={{ marginBottom: 8 }}
             >
-              View Weekly Menu
+              Select Meals
             </Button>
             
             <Button

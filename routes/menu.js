@@ -1,5 +1,6 @@
 const express = require('express');
 const {
+  getAllMenus,
   getCurrentMenu,
   getMenuByWeek,
   createMenu,
@@ -18,6 +19,7 @@ router.use(protect);
 
 // Public routes (protected but not role-restricted)
 router.get('/current', getCurrentMenu);
+router.get('/all', authorize('admin'), getAllMenus);
 router.get('/:weekId', getMenuByWeek);
 
 // Admin routes

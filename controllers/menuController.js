@@ -9,23 +9,72 @@ const { getCurrentWeekId, getWeekDates } = require('../utils/weekUtils');
  */
 
 /**
+ * @desc    Get all weekly menus
+ * @route   GET /api/menu/all
+ * @access  Private (Admin only)
+ */
+exports.getAllMenus = asyncHandler(async (req, res, next) => {
+  try {
+    console.log('Fetching all weekly menus');
+    
+    const menus = await WeeklyMenu.find()
+      .sort({ year: -1, weekNumber: -1 })
+      .populate({
+        path: 'days.meals',
+        select: 'name description imageUrl tags'
+      })
+      .populate({
+        path: 'createdBy',
+        select: 'name'
+      })
+      .populate({
+        path: 'updatedBy',
+        select: 'name'
+      });
+    
+    res.status(200).json({
+      success: true,
+      count: menus.length,
+      data: menus
+    });
+  } catch (err) {
+    console.error('Error in getAllMenus:', err);
+    return next(
+      new ErrorResponse('Error retrieving menus', 500)
+    );
+  }
+});
+
+/**
  * @desc    Get current week's menu
  * @route   GET /api/menu/current
  * @access  Private
  */
 exports.getCurrentMenu = asyncHandler(async (req, res, next) => {
-  const menu = await WeeklyMenu.getCurrentMenu();
+  try {
+    const menu = await WeeklyMenu.getCurrentMenu();
 
-  if (!menu) {
+    if (!menu) {
+      // Instead of returning an error, return an empty menu structure
+      return res.status(200).json({
+        success: true,
+        data: {
+          days: Array(7).fill({ meals: [] }),
+          message: 'No weekly menu has been created yet. Contact the admin to set up the menu.'
+        }
+      });
+    }
+
+    res.status(200).json({
+      success: true,
+      data: menu
+    });
+  } catch (err) {
+    console.error('Error in getCurrentMenu:', err);
     return next(
-      new ErrorResponse('No menu has been set for the current week', 404)
+      new ErrorResponse('Error retrieving the current week menu', 500)
     );
   }
-
-  res.status(200).json({
-    success: true,
-    data: menu
-  });
 });
 
 /**
@@ -34,48 +83,67 @@ exports.getCurrentMenu = asyncHandler(async (req, res, next) => {
  * @access  Private
  */
 exports.getMenuByWeek = asyncHandler(async (req, res, next) => {
-  const { weekId } = req.params;
-  console.log('Fetching menu for week:', weekId);
+  try {
+    const { weekId } = req.params;
+    console.log('Fetching menu for week:', weekId);
 
-  const menu = await WeeklyMenu.findOne({ weekId })
-    .populate({
-      path: 'days.meals',
-      select: 'name description imageUrl tags'
-    })
-    .populate({
-      path: 'createdBy',
-      select: 'name'
+    const menu = await WeeklyMenu.findOne({ weekId })
+      .populate({
+        path: 'days.meals',
+        select: 'name description imageUrl tags'
+      })
+      .populate({
+        path: 'createdBy',
+        select: 'name'
+      })
+      .populate({
+        path: 'updatedBy',
+        select: 'name'
+      });
+
+    if (!menu) {
+      // Instead of returning an error, return an empty menu structure
+      return res.status(200).json({
+        success: true,
+        data: {
+          weekId,
+          days: Array(7).fill({ meals: [] }),
+          message: 'No weekly menu has been created yet for this week. Contact the admin to set up the menu.'
+        }
+      });
+    }
+
+    // Get week dates
+    const { startDate, endDate } = getWeekDates(weekId);
+
+    res.status(200).json({
+      success: true,
+      data: {
+        ...menu._doc,
+        weekDates: {
+          startDate,
+          endDate
+        }
+      }
     });
-
-  if (!menu) {
+  } catch (err) {
+    console.error('Error in getMenuByWeek:', err);
     return next(
-      new ErrorResponse(`No menu found for week ${weekId}`, 404)
+      new ErrorResponse(`Error retrieving menu for week ${req.params.weekId}`, 500)
     );
   }
-
-  // Get week dates
-  const { startDate, endDate } = getWeekDates(weekId);
-
-  res.status(200).json({
-    success: true,
-    data: {
-      ...menu._doc,
-      weekDates: {
-        startDate,
-        endDate
-      }
-    }
-  });
 });
 
 /**
- * @desc    Create new weekly menu or update if exists
+ * @desc    Create or update weekly menu (upsert operation)
  * @route   POST /api/menu
  * @access  Private (Admin only)
  */
 exports.createMenu = asyncHandler(async (req, res, next) => {
-  console.log('Creating/updating menu with data:', JSON.stringify(req.body, null, 2));
+  console.log('UPSERT MENU: Creating or updating menu with data:', JSON.stringify(req.body, null, 2));
   console.log('User ID:', req.user ? req.user.id : 'No user ID found');
+  console.log('Request headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Authentication present:', req.headers.authorization ? 'Yes' : 'No');
   
   try {
     // Check if user is authenticated
@@ -147,45 +215,52 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
       processedDays.push({ meals: [] });
     }
     
-    // Prepare the menu data
-    const menuData = {
-      weekNumber,
-      year,
-      weekId,
-      days: processedDays,
-      createdBy: req.user.id
-    };
-    
-    // Check if menu already exists for this week
+    // First check if the menu already exists
     const existingMenu = await WeeklyMenu.findOne({ weekId });
-    
     let menu;
-    let statusCode;
-    let eventType;
     
     if (existingMenu) {
-      console.log('Menu already exists, updating:', existingMenu._id);
+      // Update existing menu
+      console.log('Updating existing menu for weekId:', weekId);
       
-      // Update the existing menu
+      const updateData = {
+        weekNumber,
+        year,
+        weekId,
+        days: processedDays,
+        updatedBy: req.user.id
+      };
+      
       menu = await WeeklyMenu.findOneAndUpdate(
         { weekId }, 
-        menuData,
-        { new: true, runValidators: true }
+        updateData,
+        { 
+          new: true,
+          runValidators: true
+        }
       );
-      
-      statusCode = 200; // OK for update
-      eventType = 'menu:updated';
     } else {
-      console.log('Creating new menu with processed data:', JSON.stringify(menuData, null, 2));
+      // Create new menu
+      console.log('Creating new menu for weekId:', weekId);
       
-      // Create a new menu
-      menu = await WeeklyMenu.create(menuData);
+      const newMenuData = {
+        weekNumber,
+        year,
+        weekId,
+        days: processedDays,
+        createdBy: req.user.id,
+        updatedBy: req.user.id
+      };
       
-      statusCode = 201; // Created for new resource
-      eventType = 'menu:created';
+      menu = await WeeklyMenu.create(newMenuData);
     }
     
-    console.log('Menu operation successful with ID:', menu._id);
+    // Determine if this was a new document or an update based on our previous check
+    const isNewDocument = !existingMenu;
+    const statusCode = isNewDocument ? 201 : 200;
+    const eventType = isNewDocument ? 'menu:created' : 'menu:updated';
+    
+    console.log(`Menu ${isNewDocument ? 'created' : 'updated'} with ID:`, menu._id);
     
     // Populate the menu
     await menu.populate([
@@ -195,6 +270,10 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
       },
       {
         path: 'createdBy',
+        select: 'name'
+      },
+      {
+        path: 'updatedBy',
         select: 'name'
       }
     ]);
@@ -209,7 +288,7 @@ exports.createMenu = asyncHandler(async (req, res, next) => {
     return res.status(statusCode).json({
       success: true,
       data: menu,
-      message: existingMenu ? 'Menu updated successfully' : 'Menu created successfully'
+      message: isNewDocument ? 'Menu created successfully' : 'Menu updated successfully'
     });
   } catch (error) {
     console.error('Error in createMenu controller:', error);
@@ -410,12 +489,12 @@ exports.copyMenu = asyncHandler(async (req, res, next) => {
   }
 
   try {
-    const newMenu = await WeeklyMenu.copyMenu(sourceWeekId, targetWeekId);
+    const newMenu = await WeeklyMenu.copyMenu(sourceWeekId, targetWeekId, req.user.id);
 
     // Populate the menu
     await newMenu.populate([
       {
-        path: 'meals',
+        path: 'days.meals',
         select: 'name description imageUrl tags'
       },
       {

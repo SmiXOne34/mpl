@@ -1,6 +1,7 @@
 import {
   GET_WEEKLY_MENU,
   GET_MENU_BY_WEEK,
+  GET_ALL_MENUS,
   CREATE_MENU,
   UPDATE_MENU,
   DELETE_MENU,
@@ -31,6 +32,12 @@ export default function(state = initialState, action) {
               menu.weekId === action.payload.weekId ? action.payload : menu
             )
           : [...state.menus, action.payload],
+        loading: false
+      };
+    case GET_ALL_MENUS:
+      return {
+        ...state,
+        menus: action.payload,
         loading: false
       };
     case CREATE_MENU:

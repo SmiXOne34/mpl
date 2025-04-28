@@ -12,6 +12,10 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
+    "build": "npm run build:client && npm run build:server",
+    "build:client": "cd client && npm install --production=false && CI=false npm run build",
+    "build:server": "npm install --production",
+    "prod": "NODE_ENV=production node server.js",
     "heroku-postbuild": "NPM_CONFIG_PRODUCTION=false npm install --prefix client && CI=false npm run build --prefix client",
     "vercel-build": "npm install --legacy-peer-deps && cd client && npm install --legacy-peer-deps && CI=false npm run build"
   },

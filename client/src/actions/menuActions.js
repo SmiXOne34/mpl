@@ -1,6 +1,7 @@
 import {
   GET_WEEKLY_MENU,
   GET_MENU_BY_WEEK,
+  GET_ALL_MENUS,
   CREATE_MENU,
   UPDATE_MENU,
   DELETE_MENU,
@@ -81,14 +82,49 @@ export const getMenuByWeek = weekId => async dispatch => {
   }
 };
 
-// Create new weekly menu
+// Get all weekly menus
+export const getAllMenus = () => async dispatch => {
+  try {
+    console.log('Fetching all weekly menus');
+    dispatch({ type: SET_LOADING });
+
+    const res = await api.get('/menu/all');
+    console.log('All menus response:', res.data);
+
+    dispatch({
+      type: GET_ALL_MENUS,
+      payload: res.data.data
+    });
+
+    return res.data.data; // Return the data for promise chaining
+  } catch (err) {
+    console.error('Error fetching all menus:', err);
+    
+    let errorMessage = 'Error fetching menus';
+    if (err.response) {
+      errorMessage = err.response.data?.error || `Server error: ${err.response.status}`;
+    }
+    
+    dispatch({
+      type: MENU_ERROR,
+      payload: errorMessage
+    });
+
+    // Rethrow the error for promise chaining
+    throw err;
+  }
+};
+
+// Create or update weekly menu (upsert)
 export const createMenu = menuData => async dispatch => {
   try {
-    console.log('Creating menu with data:', JSON.stringify(menuData, null, 2));
+    console.log('Creating/updating menu with data:', JSON.stringify(menuData, null, 2));
     dispatch({ type: SET_LOADING });
 
     // Validate the menu data
     if (!menuData.weekNumber || !menuData.year) {
+      console.error('Missing required fields in menuData:', menuData);
+      console.error('Missing required fields in menuData:', menuData);
       const error = new Error('Week number and year are required');
       dispatch({
         type: MENU_ERROR,
@@ -101,7 +137,25 @@ export const createMenu = menuData => async dispatch => {
     const weekNumber = parseInt(menuData.weekNumber, 10);
     const year = parseInt(menuData.year, 10);
 
+    console.log('Parsed weekNumber:', weekNumber, 'Original:', menuData.weekNumber);
+    console.log('Parsed year:', year, 'Original:', menuData.year);
+
+    console.log('Parsed weekNumber:', weekNumber, 'Original:', menuData.weekNumber);
+    console.log('Parsed year:', year, 'Original:', menuData.year);
+
     if (isNaN(weekNumber) || isNaN(year)) {
+      console.error('Invalid number format:', { 
+        weekNumber: menuData.weekNumber, 
+        year: menuData.year,
+        parsedWeekNumber: weekNumber,
+        parsedYear: year
+      });
+      console.error('Invalid number format:', { 
+        weekNumber: menuData.weekNumber, 
+        year: menuData.year,
+        parsedWeekNumber: weekNumber,
+        parsedYear: year
+      });
       const error = new Error('Week number and year must be valid numbers');
       dispatch({
         type: MENU_ERROR,
@@ -145,21 +199,28 @@ export const createMenu = menuData => async dispatch => {
       finalDays.push({ meals: [] });
     }
 
+    // Generate weekId
+    const weekId = `${year}-${weekNumber.toString().padStart(2, '0')}`;
+
     // Prepare the final payload
     const finalPayload = {
       weekNumber,
       year,
-      weekId: `${year}-${weekNumber.toString().padStart(2, '0')}`,
+      weekId,
       days: finalDays
     };
 
     console.log('Making POST request to /menu with processed data:', JSON.stringify(finalPayload, null, 2));
     
-    // Make the API request
+    // Log the request details
+    console.log('Making POST request to /menu with these headers:', api.defaults.headers);
+    console.log('Auth header present:', api.defaults.headers.common['Authorization'] ? 'Yes' : 'No');
+    
+    // Make the API request - this will create or update as needed
     const res = await api.post('/menu', finalPayload);
     
-    console.log('Create menu response status:', res.status);
-    console.log('Create menu response data:', JSON.stringify(res.data, null, 2));
+    console.log('Menu operation response status:', res.status);
+    console.log('Menu operation response data:', JSON.stringify(res.data, null, 2));
 
     // Validate the response
     if (!res.data) {
@@ -177,15 +238,18 @@ export const createMenu = menuData => async dispatch => {
       throw new Error('API response missing data');
     }
 
-    // Dispatch the success action
+    // Determine if this was a create or update based on status code
+    const actionType = res.status === 201 ? CREATE_MENU : UPDATE_MENU;
+    
+    // Dispatch the appropriate success action
     dispatch({
-      type: CREATE_MENU,
+      type: actionType,
       payload: res.data.data
     });
 
     return res.data.data;
   } catch (err) {
-    console.error('Error creating menu:', err);
+    console.error('Error creating/updating menu:', err);
     
     let errorMessage = 'Failed to save menu. Please try again.';
     

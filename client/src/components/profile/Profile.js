@@ -271,10 +271,22 @@ const Profile = ({
         return;
       }
       
+      console.log('Selected image file:', {
+        name: file.name,
+        type: file.type,
+        size: file.size,
+        lastModified: new Date(file.lastModified).toISOString()
+      });
+      
       // Create a preview and show the dialog
       const reader = new FileReader();
       reader.onload = (e) => {
         setImagePreview(e.target.result);
+      };
+      reader.onerror = (error) => {
+        console.error('Error reading file:', error);
+        setSnackbarMessage('Error reading image file. Please try another image.');
+        setSnackbarOpen(true);
       };
       reader.readAsDataURL(file);
       
@@ -283,7 +295,12 @@ const Profile = ({
         try {
           setImageLoading(true);
           setUploadSuccess(false);
+          
+          // Pass the file to the uploadProfileImage action
+          // The action will resize and convert it to base64 data URL
+          console.log('Starting profile image upload...');
           await uploadProfileImage(file);
+          
           setImageLoading(false);
           
           // Show success state in dialog
@@ -303,8 +320,15 @@ const Profile = ({
           setUploadSuccess(false);
           console.error('Error uploading image:', err);
           
-          // Show error message
-          setSnackbarMessage('Failed to update profile image. Please try again.');
+          // Show detailed error message
+          let errorMessage = 'Failed to update profile image. Please try again.';
+          if (err.response && err.response.data && err.response.data.error) {
+            errorMessage = err.response.data.error;
+          } else if (err.message) {
+            errorMessage = `Error: ${err.message}`;
+          }
+          
+          setSnackbarMessage(errorMessage);
           setSnackbarOpen(true);
           
           // Clear the preview

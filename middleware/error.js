@@ -9,7 +9,28 @@ const errorHandler = (err, req, res, next) => {
   error.message = err.message;
 
   // Log to console for dev
-  console.error(err);
+  console.error('Error details:', {
+    name: err.name,
+    message: err.message,
+    code: err.code,
+    statusCode: err.statusCode,
+    path: req.path,
+    method: req.method
+  });
+
+  // Handle payload too large error
+  if (err.type === 'entity.too.large' || 
+      (err.message && err.message.includes('request entity too large'))) {
+    const message = 'Request payload too large. Please reduce the size of your request.';
+    error = new ErrorResponse(message, 413);
+  }
+
+  // Handle JSON parsing errors
+  if (err.type === 'entity.parse.failed' || 
+      (err.name === 'SyntaxError' && err.message.includes('JSON'))) {
+    const message = 'Invalid JSON in request body.';
+    error = new ErrorResponse(message, 400);
+  }
 
   // Mongoose bad ObjectId
   if (err.name === 'CastError') {
@@ -39,9 +60,16 @@ const errorHandler = (err, req, res, next) => {
     error = new ErrorResponse(err.message, 400);
   }
 
+  // Network or timeout errors
+  if (err.name === 'NetworkError' || err.code === 'ECONNABORTED') {
+    const message = 'Network error or request timeout. Please try again.';
+    error = new ErrorResponse(message, 408);
+  }
+
   res.status(error.statusCode || 500).json({
     success: false,
-    error: error.message || 'Server Error'
+    error: error.message || 'Server Error',
+    path: req.path
   });
 };
 

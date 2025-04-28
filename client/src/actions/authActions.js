@@ -25,7 +25,7 @@ export const loadUser = () => async dispatch => {
     console.log('loadUser action called');
     
     // Set token in headers
-    if (localStorage.token) {
+    if (localStorage.token && localStorage.token !== 'undefined') {
       console.log('Setting auth token from localStorage');
       setAuthToken(localStorage.token);
       
@@ -36,7 +36,7 @@ export const loadUser = () => async dispatch => {
         initSocket(localStorage.token);
       }
     } else {
-      console.log('No token found in localStorage');
+      console.log('No valid token found in localStorage');
       // If no token, dispatch AUTH_ERROR and return early
       dispatch({ type: AUTH_ERROR });
       return;
@@ -46,16 +46,31 @@ export const loadUser = () => async dispatch => {
     const res = await api.get('/auth/me');
     console.log('User data response:', res.data);
     
-    // Check if we have a saved profile image URL
-    const savedImageUrl = localStorage.getItem('profileImageUrl');
     let userData = res.data.data;
     
-    // If we have a saved image URL, add it to the user data
+    // Check if we have a saved profile image URL in localStorage
+    const savedImageUrl = localStorage.getItem('profileImageUrl');
+    
+    // If we have a saved image URL in localStorage, use it
+    // Otherwise, use the one from the server if available
     if (savedImageUrl) {
       userData = {
         ...userData,
         imageUrl: savedImageUrl
       };
+      
+      // If the server doesn't have the image URL, update it
+      if (!userData.imageUrl || userData.imageUrl !== savedImageUrl) {
+        try {
+          await api.put('/auth/uploadimage', { imageUrl: savedImageUrl });
+          console.log('Updated server with saved profile image URL');
+        } catch (error) {
+          console.error('Failed to update server with saved profile image:', error);
+        }
+      }
+    } else if (userData.imageUrl) {
+      // If the server has an image URL but localStorage doesn't, save it
+      localStorage.setItem('profileImageUrl', userData.imageUrl);
     }
     
     // Store user data in localStorage for persistence
@@ -141,7 +156,7 @@ export const login = (email, password) => async dispatch => {
     apiUrl = `${process.env.REACT_APP_API_URL}/auth/login`;
   } else {
     // Default development server
-    apiUrl = 'http://localhost:9091/api/auth/login';
+    apiUrl = 'http://localhost:9092/api/auth/login';
   }
   
   console.log(`Using API URL: ${apiUrl}`);
@@ -180,6 +195,46 @@ export const login = (email, password) => async dispatch => {
   } catch (err) {
     console.error('Login failed with axios:', err);
     
+    // Check if we have a specific error message from the server
+    if (err.response && err.response.data) {
+      // Log the full error response for debugging
+      console.log('Server error response:', err.response.data);
+      
+      // Include the status code in the error message for all errors
+      let errorMessage;
+      
+      // Handle 404 errors specifically for user not found
+      if (err.response.status === 404 && 
+          (err.response.data.error?.includes('User not found') || 
+           err.response.data.message?.includes('User not found'))) {
+        errorMessage = 'User not found. Please check your email or register a new account.';
+      } else {
+        // For other errors, use the provided error message or a default
+        errorMessage = err.response.data.error || err.response.data.message || `Server error (${err.response.status})`;
+      }
+      
+      // Dispatch the error with the server's message
+      dispatch({
+        type: LOGIN_FAIL,
+        payload: errorMessage
+      });
+      return; // Exit early since we've handled the error
+    } else if (err.request) {
+      // The request was made but no response was received
+      dispatch({
+        type: LOGIN_FAIL,
+        payload: 'Network Error: No response from server'
+      });
+      return;
+    } else {
+      // Something happened in setting up the request
+      dispatch({
+        type: LOGIN_FAIL,
+        payload: `Request Error: ${err.message}`
+      });
+      return;
+    }
+    
     // Try with fetch as a fallback
     console.log('Attempting fetch as fallback');
     
@@ -196,7 +251,7 @@ export const login = (email, password) => async dispatch => {
       
       console.log('Fetch response status:', fetchResponse.status);
       
-      // Even if we get a 401, try to parse the response
+      // Even if we get a 401 or 404, try to parse the response
       const responseText = await fetchResponse.text();
       console.log('Server response text:', responseText);
       
@@ -209,11 +264,17 @@ export const login = (email, password) => async dispatch => {
       }
       
       if (!fetchResponse.ok) {
+        // Handle 404 errors specifically for user not found
+        if (fetchResponse.status === 404 && 
+            ((data && data.error && data.error.includes('User not found')) || 
+             (data && data.message && data.message.includes('User not found')))) {
+          throw new Error('User not found. Please check your email or register a new account.');
+        }
         // If we have a structured error message from the server, use it
-        if (data && data.error) {
-          throw new Error(data.error);
+        else if (data && (data.error || data.message)) {
+          throw new Error(data.error || data.message);
         } else {
-          throw new Error(`Server responded with status: ${fetchResponse.status}`);
+          throw new Error(`Server error (${fetchResponse.status})`);
         }
       }
       
@@ -246,16 +307,8 @@ export const login = (email, password) => async dispatch => {
     } catch (fetchErr) {
       console.error('Login failed with fetch:', fetchErr);
       
-      // Determine the most appropriate error message
-      let errorMessage = 'Login failed. Please check your credentials and try again.';
-      
-      if (fetchErr.message) {
-        if (fetchErr.message.includes('401')) {
-          errorMessage = 'Invalid email or password. Please try again.';
-        } else {
-          errorMessage = `Error: ${fetchErr.message}`;
-        }
-      }
+      // Use the error message from the fetch error
+      let errorMessage = fetchErr.message || 'Login failed. Please check your credentials and try again.';
       
       // Dispatch the error
       dispatch({
@@ -287,8 +340,17 @@ export const logout = () => async dispatch => {
   // Close socket connection on logout
   console.log('Closing socket connection on logout');
   closeSocket();
-
+  
+  // Save the profile image URL before logout
+  const profileImageUrl = localStorage.getItem('profileImageUrl');
+  
+  // Dispatch logout action
   dispatch({ type: LOGOUT });
+  
+  // Restore the profile image URL after logout
+  if (profileImageUrl) {
+    localStorage.setItem('profileImageUrl', profileImageUrl);
+  }
 };
 
 // Update Profile
@@ -360,25 +422,80 @@ export const updatePassword = (passwordData) => async dispatch => {
   }
 };
 
+// Helper function to resize an image
+const resizeImage = (file, maxWidth = 800, maxHeight = 800, quality = 0.7) => {
+  return new Promise((resolve, reject) => {
+    // Create a FileReader to read the file
+    const reader = new FileReader();
+    
+    // Set up the FileReader onload callback
+    reader.onload = (readerEvent) => {
+      // Create an image object
+      const img = new Image();
+      img.onload = () => {
+        // Calculate new dimensions while maintaining aspect ratio
+        let width = img.width;
+        let height = img.height;
+        
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+        
+        // Create a canvas and resize the image
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Draw the image on the canvas
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, width, height);
+        
+        // Convert the canvas to a data URL
+        const dataUrl = canvas.toDataURL('image/jpeg', quality);
+        
+        // Resolve with the data URL
+        resolve(dataUrl);
+      };
+      
+      // Set the source of the image to the FileReader result
+      img.src = readerEvent.target.result;
+    };
+    
+    // Handle errors
+    reader.onerror = (error) => {
+      console.error('Error reading file:', error);
+      reject(error);
+    };
+    
+    // Read the file as a data URL
+    reader.readAsDataURL(file);
+  });
+};
+
 // Upload Profile Image
 export const uploadProfileImage = (imageFile) => async dispatch => {
   try {
     console.log('Uploading profile image');
+    console.log('Image file size:', imageFile.size, 'bytes');
     
-    // Create a URL for the uploaded image
-    const imageUrl = URL.createObjectURL(imageFile);
+    // Resize the image before uploading
+    const resizedImageData = await resizeImage(imageFile);
+    console.log('Resized image data length:', resizedImageData.length);
     
-    // In a real implementation, we would upload the image to a server
-    // and get back a URL. For now, we'll use the local object URL.
+    // Send the resized image data to the server
+    console.log('Sending image data to server...');
+    const res = await api.put('/auth/uploadimage', { imageUrl: resizedImageData });
     
-    // Simulate a network delay
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Send the image URL to the server
-    const res = await api.put('/auth/uploadimage', { imageUrl });
-    
-    // Store the image URL in localStorage for persistence
-    localStorage.setItem('profileImageUrl', imageUrl);
+    // Store the resized image data in localStorage for persistence
+    localStorage.setItem('profileImageUrl', resizedImageData);
     
     console.log('Profile image upload response:', res.data);
 
@@ -393,7 +510,15 @@ export const uploadProfileImage = (imageFile) => async dispatch => {
     
     let errorMessage = 'Profile image upload failed';
     if (err.response) {
+      console.error('Error response data:', err.response.data);
+      console.error('Error response status:', err.response.status);
       errorMessage = err.response.data?.error || `Server error: ${err.response.status}`;
+    } else if (err.request) {
+      console.error('No response received:', err.request);
+      errorMessage = 'No response received from server. Please check your connection.';
+    } else {
+      console.error('Request setup error:', err.message);
+      errorMessage = `Request error: ${err.message}`;
     }
     
     dispatch({

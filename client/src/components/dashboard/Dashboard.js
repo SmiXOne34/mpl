@@ -532,7 +532,7 @@ const Dashboard = ({
             variant="contained"
             color={votingStatus.isOpen ? "primary" : "default"}
             component={LinkBehavior}
-            to={votingStatus.isOpen ? '/meals/select' : '/meals/weekly'}
+            to="/meals/select"
             size="large"
             style={{ 
               padding: '12px 24px', 
@@ -1001,15 +1001,15 @@ const Dashboard = ({
               variant="contained"
               color="primary"
               component={LinkBehavior}
-              to="/meals/weekly"
+              to="/meals/select"
               fullWidth
               startIcon={<RestaurantMenu />}
               style={{ marginBottom: 8 }}
             >
-              View Weekly Menu
+              Select Meals
             </Button>
             <Typography variant="body2" color="textSecondary">
-              See all planned meals for the current week
+              Choose your meals for the current week
             </Typography>
           </Paper>
         </Grid>

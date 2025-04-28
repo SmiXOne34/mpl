@@ -41,14 +41,15 @@ connectDB();
 // Initialize express app
 const app = express();
 
-// Create HTTP server
+// Create HTTP server - this is just a template, actual server instances will be created in startServer
 const server = http.createServer(app);
 
-// Set up Socket.io
-const io = setupSocket(server);
+// We'll set up Socket.io after a server successfully starts
+let io = null;
 
-// Body parser
-app.use(express.json());
+// Body parser with increased size limit for profile images
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Cookie parser
 app.use(cookieParser());
@@ -265,14 +266,46 @@ if (process.env.NODE_ENV === 'production') {
 app.use(errorHandler);
 
 // Set port
-const PORT = process.env.PORT || 9091; // Changed from 9090 to avoid port conflict
+const PORT = process.env.PORT || 9092; // Changed from 9091 to avoid port conflict
 
 // Start server only if not in test environment and not in Vercel serverless environment
-let serverInstance;
+let serverInstance = null;
 if (process.env.NODE_ENV !== 'test' && process.env.VERCEL !== '1') {
-  serverInstance = server.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold);
-  });
+  try {
+    // Create HTTP server
+    serverInstance = http.createServer(app);
+    
+    // Set up error handler before attempting to listen
+    serverInstance.on('error', (err) => {
+      if (err.code === 'EADDRINUSE') {
+        console.error(`Error: Port ${PORT} is already in use. Please stop the process using this port and try again.`.red);
+        process.exit(1);
+      } else {
+        console.error('Server error:', err);
+        process.exit(1);
+      }
+    });
+    
+    // Try to listen on the port
+    serverInstance.listen(PORT, () => {
+      // Set up Socket.io with the server instance
+      io = setupSocket(serverInstance);
+      
+      // Save the port to a file for the client to discover
+      try {
+        const fs = require('fs');
+        fs.writeFileSync('./.server-port', PORT.toString());
+        console.log(`Server port ${PORT} saved to .server-port file`);
+      } catch (err) {
+        console.warn('Failed to save server port to file:', err);
+      }
+      
+      console.log(`Server running in ${process.env.NODE_ENV} mode on port ${PORT}`.yellow.bold);
+    });
+  } catch (err) {
+    console.error('Failed to start server:', err);
+    process.exit(1);
+  }
 }
 
 // Handle unhandled promise rejections

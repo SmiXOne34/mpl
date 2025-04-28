@@ -3,6 +3,11 @@ node_modules/
 
 # Environment variables
 .env
+.env.*
+!.env.example
+
+# Server port file
+.server-port
 
 # Log files
 logs/
@@ -52,6 +57,8 @@ typings/
 
 # Production build files
 /client/build
+/dist
+/build
 
 # Mac files
 .DS_Store

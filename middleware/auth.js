@@ -19,7 +19,8 @@ exports.protect = asyncHandler(async (req, res, next) => {
   // Check for token in Authorization header
   if (
     req.headers.authorization &&
-    req.headers.authorization.startsWith('Bearer')
+    req.headers.authorization.startsWith('Bearer') &&
+    req.headers.authorization.split(' ')[1] !== 'undefined'
   ) {
     // Set token from Bearer token in header
     token = req.headers.authorization.split(' ')[1];

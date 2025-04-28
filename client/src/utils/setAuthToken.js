@@ -8,7 +8,7 @@ import api from './api';
  * @param {string} token - JWT token
  */
 const setAuthToken = token => {
-  if (token) {
+  if (token && token !== 'undefined') {
     console.log('Setting auth token in API headers');
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   } else {

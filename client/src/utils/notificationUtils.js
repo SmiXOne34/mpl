@@ -85,7 +85,7 @@ export const generateReminders = (votingStatus, dispatch, notifications = []) =>
         title,
         message: 'Meal voting has closed for this week. The weekly menu is now available.',
         type: 'event',
-        link: '/meals/weekly'
+        link: '/meals/select'
       }));
     }
   }

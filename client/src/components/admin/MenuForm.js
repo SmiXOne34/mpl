@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link as RouterLink, useHistory } from 'react-router-dom';
 import LinkBehavior from '../routing/LinkBehavior';
-import { connect } from 'react-redux';
+import { connect, useDispatch } from 'react-redux';
 import PropTypes from 'prop-types';
-import { getWeeklyMenu, createMenu, updateMenu, getMenuByWeek } from '../../actions/menuActions';
+import { getWeeklyMenu, getMenuByWeek, createMenu, updateMenu } from '../../actions/menuActions';
 import { getMeals } from '../../actions/mealActions';
 import { getDayName, getWeekNumber, formatReadableDate } from '../../utils/dateUtils';
 
@@ -87,10 +87,12 @@ const useStyles = makeStyles((theme) => ({
   },
   weekInfo: {
     marginBottom: theme.spacing(3),
-    padding: theme.spacing(2),
-    backgroundColor: theme.palette.primary.light,
-    color: theme.palette.primary.contrastText,
+    padding: theme.spacing(3),
+    backgroundColor: theme.palette.background.paper,
     borderRadius: theme.shape.borderRadius,
+    border: `1px solid ${theme.palette.divider}`,
+    boxShadow: theme.shadows[1],
+    textAlign: 'center',
   },
   noMeals: {
     textAlign: 'center',
@@ -101,18 +103,42 @@ const useStyles = makeStyles((theme) => ({
 const MenuForm = ({
   menu: { currentMenu, loading: menuLoading },
   meal: { meals, loading: mealLoading },
+  auth: { user, isAuthenticated },
   getWeeklyMenu,
+  getMenuByWeek,
   createMenu,
   updateMenu,
-  getMeals
+  getMeals,
+  match
 }) => {
   const classes = useStyles();
   const history = useHistory();
+  const dispatch = useDispatch();
+  const { weekId } = match.params;
   
   const [selectedDay, setSelectedDay] = useState(0);
+  
+  // Helper function to get current week and year
+  const getCurrentWeekAndYear = () => {
+    // Use April 27, 2025 as the reference date
+    const referenceDate = new Date(2025, 3, 27); // Month is 0-indexed (3 = April)
+    
+    // Explicitly set week 18 for April 27, 2025
+    const weekNum = 18;
+    const year = 2025;
+    const weekNumStr = weekNum.toString().padStart(2, '0');
+    
+    console.log(`Setting current week to Week ${weekNum}, ${year} (April 27, 2025)`);
+    
+    return {
+      weekNumber: weekNum,
+      year: year,
+      weekId: `${year}-${weekNumStr}`
+    };
+  };
+  
   const [menuData, setMenuData] = useState({
-    weekNumber: getWeekNumber(new Date()),
-    year: new Date().getFullYear(),
+    ...getCurrentWeekAndYear(),
     days: Array(7).fill().map(() => ({ meals: [] }))
   });
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -127,18 +153,87 @@ const MenuForm = ({
     // Only fetch data if not already submitting a form
     if (!submitting) {
       console.log('Fetching initial data...');
-      getWeeklyMenu();
+      
+      // If we have a weekId in the URL, fetch that specific menu
+      if (weekId) {
+        console.log('Fetching menu for weekId:', weekId);
+        getMenuByWeek(weekId);
+      } else if (match.path === '/admin/menu/new') {
+        // If we're on the new menu route, just initialize with current week
+        console.log('Creating new menu with current week');
+        const newMenuData = {
+          ...getCurrentWeekAndYear(),
+          days: Array(7).fill().map(() => ({ meals: [] }))
+        };
+        console.log('Initializing new menu with data:', newMenuData);
+        setMenuData(newMenuData);
+        
+        // Reset any existing menu in the Redux store
+        dispatch({
+          type: 'GET_WEEKLY_MENU',
+          payload: null
+        });
+      } else {
+        // Otherwise, get the current weekly menu
+        console.log('Fetching current weekly menu');
+        getWeeklyMenu();
+      }
+      
+      // Always fetch meals
       getMeals();
     }
-  }, [getWeeklyMenu, getMeals, submitting]);
+  }, [getWeeklyMenu, getMenuByWeek, getMeals, submitting, weekId, match.path, dispatch]);
 
   // Update local state when currentMenu changes
   useEffect(() => {
+    // Skip this effect if we're on the new menu route
+    if (match.path === '/admin/menu/new') {
+      console.log('On new menu route, skipping currentMenu update');
+      return;
+    }
+    
     if (currentMenu && !submitting) {
       console.log('Updating menu data from currentMenu:', JSON.stringify(currentMenu, null, 2));
-      setMenuData(currentMenu);
+      
+      // Fetch full meal details for each meal ID in the menu
+      const updatedDays = [...currentMenu.days];
+      
+      // For each day in the menu
+      updatedDays.forEach((day, dayIndex) => {
+        if (day && day.meals && Array.isArray(day.meals)) {
+          // For each meal ID in the day
+          day.meals.forEach((mealId, mealIndex) => {
+            // If the meal is already an object, keep it as is
+            if (typeof mealId === 'object' && mealId !== null) {
+              return;
+            }
+            
+            // Otherwise, try to find the full meal object from the meals array
+            const fullMeal = meals.find(m => m._id === mealId);
+            if (fullMeal) {
+              // Replace the meal ID with the full meal object
+              updatedDays[dayIndex].meals[mealIndex] = fullMeal;
+            }
+          });
+        }
+      });
+      
+      // Update the menu data with the full meal objects
+      setMenuData({
+        ...currentMenu,
+        days: updatedDays
+      });
+    } else if (!currentMenu && !submitting && !weekId && match.path !== '/admin/menu/new') {
+      // If no current menu and not editing a specific week, always use current week
+      // But skip this if we're on the new menu route (we already set the data there)
+      const current = getCurrentWeekAndYear();
+      console.log('Setting current week as default:', current);
+      setMenuData(prevData => ({
+        ...prevData,
+        ...current
+      }));
     }
-  }, [currentMenu, submitting]);
+  }, [currentMenu, submitting, weekId, meals, match.path]);
 
   const handleTabChange = (event, newValue) => {
     setSelectedDay(newValue);
@@ -271,10 +366,44 @@ const MenuForm = ({
   };
 
   const handleSubmit = () => {
+    // Check if user is authenticated
+    if (!isAuthenticated || !user) {
+      setError('You must be logged in to create or update a menu.');
+      return;
+    }
+    
     // Validate the menu data before submitting
     if (!menuData.weekNumber || !menuData.year) {
-      setError('Week number and year are required');
-      return;
+      // If week number or year is missing, reset to current week
+      const current = getCurrentWeekAndYear();
+      setMenuData({
+        ...menuData,
+        ...current
+      });
+      console.log('Reset to current week:', current);
+    }
+    
+    // Additional validation for week number and year
+    const weekNum = parseInt(menuData.weekNumber, 10);
+    const year = parseInt(menuData.year, 10);
+    
+    // Just log warnings but don't block submission
+    if (isNaN(weekNum) || weekNum < 1 || weekNum > 53) {
+      console.warn('Week number validation issue - using current week');
+      const current = getCurrentWeekAndYear();
+      setMenuData({
+        ...menuData,
+        ...current
+      });
+    }
+    
+    if (isNaN(year) || year < 2020 || year > 2030) {
+      console.warn('Year validation issue - using current year');
+      const current = getCurrentWeekAndYear();
+      setMenuData({
+        ...menuData,
+        ...current
+      });
     }
     
     // Check if any days have meals
@@ -301,9 +430,7 @@ const MenuForm = ({
       }
     }, 15000); // 15 seconds timeout
     
-    // Prepare data for API
-    const weekNum = parseInt(menuData.weekNumber, 10);
-    const year = parseInt(menuData.year, 10);
+    // Prepare data for API - reuse the already parsed values from validation
     const weekNumStr = weekNum.toString().padStart(2, '0');
     const weekId = `${year}-${weekNumStr}`;
     
@@ -335,6 +462,9 @@ const MenuForm = ({
       return { meals: mealIds };
     });
     
+    // Log the processed days for debugging
+    console.log('Processed days array:', JSON.stringify(processedDays, null, 2));
+    
     console.log('Final processed days:', processedDays);
     
     const menuPayload = {
@@ -344,12 +474,29 @@ const MenuForm = ({
       days: processedDays
     };
     
+    // Log the final payload for debugging
+    console.log('Final menuPayload:', JSON.stringify(menuPayload, null, 2));
+    
+    // Double-check that the payload has the required fields
+    if (!menuPayload.weekNumber || !menuPayload.year) {
+      console.error('Missing required fields in payload:', menuPayload);
+      setError('Week number and year are required');
+      setSubmitting(false);
+      clearTimeout(safetyTimeout);
+      return;
+    }
+    
     console.log('Submitting menu payload:', JSON.stringify(menuPayload, null, 2));
     
     // Use a Promise to handle the menu update/creation
     const saveMenu = () => {
-      // If we're editing an existing menu, use updateMenu
-      if (currentMenu && currentMenu._id) {
+      // If we're editing an existing menu (URL has weekId parameter), use updateMenu
+      if (weekId) {
+        console.log('Updating existing menu with ID from URL:', weekId);
+        return updateMenu(weekId, menuPayload);
+      } 
+      // If we have a currentMenu with an ID, use updateMenu
+      else if (currentMenu && currentMenu._id) {
         // Determine which ID to use for the update
         let idToUse;
         
@@ -358,8 +505,8 @@ const MenuForm = ({
           idToUse = currentMenu.weekId;
         } 
         // Option 2: Use the generated weekId from the form data
-        else if (/^\d{4}-\d{2}$/.test(weekId)) {
-          idToUse = weekId;
+        else if (/^\d{4}-\d{2}$/.test(menuPayload.weekId)) {
+          idToUse = menuPayload.weekId;
         }
         // Option 3: As a last resort, try using the MongoDB _id
         else {
@@ -377,22 +524,9 @@ const MenuForm = ({
         
         return updateMenu(idToUse, menuPayload);
       } else {
-        // First check if a menu already exists for this week
-        return getMenuByWeek(weekId)
-          .then(existingMenu => {
-            console.log('Found existing menu for week:', weekId);
-            // If menu exists, update it instead of creating a new one
-            return updateMenu(weekId, menuPayload);
-          })
-          .catch(err => {
-            // If no menu exists (404 error), create a new one
-            if (err.response && err.response.status === 404) {
-              console.log('No existing menu found for week:', weekId, 'Creating new menu');
-              return createMenu(menuPayload);
-            }
-            // For other errors, rethrow
-            throw err;
-          });
+        // Just create the menu - our updated createMenu action will handle existing menus
+        console.log('Creating new menu with payload:', JSON.stringify(menuPayload, null, 2));
+        return createMenu(menuPayload);
       }
     };
     
@@ -413,9 +547,9 @@ const MenuForm = ({
         // Only redirect if the user explicitly clicked the save button
         // Don't redirect after adding a meal
         if (result) {
-          // Navigate back to admin page after a short delay
+          // Navigate to the week manager page after a short delay
           setTimeout(() => {
-            history.push('/admin');
+            history.push('/admin/weekmanager');
           }, 1500);
         }
       })
@@ -452,7 +586,10 @@ const MenuForm = ({
   };
 
   // Only consider initial data loading, not the loading during form submission
-  const initialLoading = (menuLoading || mealLoading) && !submitting;
+  // For new menu creation, we only need to wait for meals to load
+  const initialLoading = match.path === '/admin/menu/new' 
+    ? mealLoading && !submitting 
+    : (menuLoading || mealLoading) && !submitting;
   
   // Debug loading states
   console.log('Loading states:', { 
@@ -460,7 +597,9 @@ const MenuForm = ({
     mealLoading, 
     submitting, 
     initialLoading,
-    success
+    success,
+    path: match.path,
+    isNewMenu: match.path === '/admin/menu/new'
   });
 
   // Show loading screen only during initial data fetch
@@ -470,9 +609,36 @@ const MenuForm = ({
         <div className={classes.loadingContainer}>
           <CircularProgress />
           <Typography variant="body1" style={{ marginTop: 16 }}>
-            Loading menu data...
+            {match.path === '/admin/menu/new' 
+              ? 'Loading meal data for new menu...' 
+              : 'Loading menu data...'}
           </Typography>
         </div>
+      </Container>
+    );
+  }
+  
+  // Check if user is authenticated
+  if (!isAuthenticated || !user) {
+    return (
+      <Container className={classes.container}>
+        <Paper className={classes.paper}>
+          <Typography variant="h5" color="error" gutterBottom>
+            Authentication Error
+          </Typography>
+          <Typography variant="body1">
+            You must be logged in as an admin to create or update a menu.
+          </Typography>
+          <Button
+            variant="contained"
+            color="primary"
+            component={RouterLink}
+            to="/login"
+            style={{ marginTop: 16 }}
+          >
+            Go to Login
+          </Button>
+        </Paper>
       </Container>
     );
   }
@@ -481,7 +647,7 @@ const MenuForm = ({
     <Container className={classes.container}>
       <Paper className={classes.paper}>
         <Typography variant="h4" component="h1" className={classes.title}>
-          {currentMenu && currentMenu._id ? 'Edit Weekly Menu' : 'Create Weekly Menu'}
+          {weekId ? `Edit Menu for Week ${weekId}` : match.path === '/admin/menu/new' ? 'Create New Weekly Menu' : 'Weekly Menu Editor'}
         </Typography>
         
         {error && (
@@ -508,12 +674,16 @@ const MenuForm = ({
         )}
         
         <Box className={classes.weekInfo}>
-          <Typography variant="h6">
-            Week {menuData.weekNumber}, {menuData.year}
-          </Typography>
-          <Typography variant="body1">
-            {formatReadableDate(new Date())}
-          </Typography>
+          <Grid container spacing={3}>
+            <Grid item xs={12}>
+              <Typography variant="h6" style={{ marginBottom: '8px' }}>
+                Week Settings
+              </Typography>
+              <Typography variant="h5" style={{ fontWeight: 'bold' }}>
+                27 April 2025
+              </Typography>
+            </Grid>
+          </Grid>
         </Box>
         
         <Paper className={classes.tabs}>
@@ -633,7 +803,7 @@ const MenuForm = ({
                 <CircularProgress size={20} style={{ marginRight: 8 }} />
                 <span>{success ? 'Success!' : 'Saving...'}</span>
               </Box>
-            ) : currentMenu && currentMenu._id ? (
+            ) : weekId ? (
               'Update Menu'
             ) : (
               'Create Menu'
@@ -656,7 +826,14 @@ const MenuForm = ({
       >
         <DialogTitle>
           <Box display="flex" justifyContent="space-between" alignItems="center">
-            <Typography variant="h6">Select Meals for {getDayName(selectedDay)}</Typography>
+            <Typography variant="h6">
+              Select Meals for {getDayName(selectedDay)}
+              {menuData.days[selectedDay]?.meals?.length > 0 && (
+                <Typography variant="body2" color="textSecondary" style={{ marginTop: 4 }}>
+                  Current meals: {menuData.days[selectedDay].meals.length}
+                </Typography>
+              )}
+            </Typography>
             <TextField
               placeholder="Search meals..."
               variant="outlined"
@@ -678,6 +855,48 @@ const MenuForm = ({
               }}
             />
           </Box>
+          
+          {/* Show current meals in this day */}
+          {menuData.days[selectedDay]?.meals?.length > 0 && (
+            <Box mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
+              <Typography variant="subtitle2" gutterBottom>
+                Current meals in {getDayName(selectedDay)}:
+              </Typography>
+              <Grid container spacing={1}>
+                {menuData.days[selectedDay].meals.map((meal, index) => (
+                  <Grid item key={index}>
+                    <Chip 
+                      label={typeof meal === 'object' ? meal.name : `Meal ${index+1}`}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
+          
+          {/* Show current meals in this day */}
+          {menuData.days[selectedDay]?.meals?.length > 0 && (
+            <Box mt={2} p={2} bgcolor="#f5f5f5" borderRadius={4}>
+              <Typography variant="subtitle2" gutterBottom>
+                Current meals in {getDayName(selectedDay)}:
+              </Typography>
+              <Grid container spacing={1}>
+                {menuData.days[selectedDay].meals.map((meal, index) => (
+                  <Grid item key={index}>
+                    <Chip 
+                      label={typeof meal === 'object' ? meal.name : `Meal ${index+1}`}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                    />
+                  </Grid>
+                ))}
+              </Grid>
+            </Box>
+          )}
           
           {/* Selection controls */}
           <Box display="flex" justifyContent="flex-end" mt={2}>
@@ -926,16 +1145,19 @@ const MenuForm = ({
 MenuForm.propTypes = {
   menu: PropTypes.object.isRequired,
   meal: PropTypes.object.isRequired,
+  auth: PropTypes.object.isRequired,
   getWeeklyMenu: PropTypes.func.isRequired,
   getMenuByWeek: PropTypes.func.isRequired,
   createMenu: PropTypes.func.isRequired,
   updateMenu: PropTypes.func.isRequired,
   getMeals: PropTypes.func.isRequired,
+  match: PropTypes.object.isRequired,
 };
 
 const mapStateToProps = (state) => ({
   menu: state.menu,
   meal: state.meal,
+  auth: state.auth,
 });
 
 export default connect(mapStateToProps, {

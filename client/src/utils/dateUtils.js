@@ -101,11 +101,22 @@ export const formatTimeRemaining = (hours, minutes) => {
 
 /**
  * Get start and end dates for a specific week
- * @param {number} weekNumber - Week number (1-52)
- * @param {number} year - Year
+ * @param {number|string} weekNumber - Week number (1-52) or weekId in format 'YYYY-WW'
+ * @param {number} [year] - Year (optional if weekId is provided)
  * @returns {Object} Object with start and end dates
  */
 export const getWeekDates = (weekNumber, year) => {
+  // Check if weekNumber is actually a weekId in the format 'YYYY-WW'
+  if (typeof weekNumber === 'string' && weekNumber.includes('-')) {
+    const [yearStr, weekStr] = weekNumber.split('-');
+    year = parseInt(yearStr, 10);
+    weekNumber = parseInt(weekStr, 10);
+    
+    if (isNaN(year) || isNaN(weekNumber)) {
+      throw new Error(`Invalid week ID format: ${weekNumber}. Expected format: YYYY-WW`);
+    }
+  }
+  
   // Create a date for January 1st of the given year
   const januaryFirst = new Date(year, 0, 1);
   
@@ -126,7 +137,9 @@ export const getWeekDates = (weekNumber, year) => {
   
   return {
     start: weekStart,
-    end: weekEnd
+    end: weekEnd,
+    startDate: weekStart, // For compatibility with the new API
+    endDate: weekEnd      // For compatibility with the new API
   };
 };
 
@@ -175,6 +188,17 @@ export const getWeekNumber = (date) => {
   const weekNumber = Math.ceil((((d - yearStart) / 86400000) + 1) / 7);
   
   return weekNumber;
+};
+
+/**
+ * Get the current week ID in the format YYYY-WW
+ * @returns {string} The current week ID
+ */
+export const getCurrentWeekId = () => {
+  const now = new Date();
+  const weekNum = getWeekNumber(now);
+  const year = now.getFullYear();
+  return `${year}-${weekNum.toString().padStart(2, '0')}`;
 };
 
 /**

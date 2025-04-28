@@ -17,7 +17,8 @@ import {
   Box,
   CircularProgress,
   makeStyles,
-  Paper
+  Paper,
+  Snackbar
 } from '@material-ui/core';
 import { Alert } from '@material-ui/lab';
 import { PersonAddOutlined } from '@material-ui/icons';
@@ -70,6 +71,13 @@ const Register = ({
   // Add a timeout for loading state
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   
+  // Add state for snackbar
+  const [snackbar, setSnackbar] = useState({
+    open: false,
+    message: '',
+    severity: 'error'
+  });
+  
   // Set a timeout to bypass loading state if it takes too long
   useEffect(() => {
     console.log('Setting up loading timeout');
@@ -80,6 +88,14 @@ const Register = ({
     
     return () => clearTimeout(timer);
   }, []);
+  
+  // Handle snackbar close
+  const handleSnackbarClose = () => {
+    setSnackbar({
+      ...snackbar,
+      open: false
+    });
+  };
   
   // Debug settings
   console.log('Settings state:', settings);
@@ -119,6 +135,29 @@ const Register = ({
     
     fetchSettings();
   }, [getSettings]);
+
+  // Watch for errors and show snackbar
+  useEffect(() => {
+    if (error) {
+      let message = error;
+      let severity = 'error';
+      
+      // Special handling for specific error types
+      if (error.includes('Email already exists') || error.includes('(400)')) {
+        message = 'This email is already registered. Please use a different email or try logging in.';
+      } else if (error.includes('Server error') || error.includes('(500)')) {
+        message = 'Server error. Please try again later.';
+      } else if (error.includes('Network Error')) {
+        message = 'Network error. Please check your internet connection.';
+      }
+      
+      setSnackbar({
+        open: true,
+        message,
+        severity
+      });
+    }
+  }, [error]);
 
   // Clear errors when component unmounts
   useEffect(() => {
@@ -304,6 +343,28 @@ const Register = ({
           </Grid>
         </form>
       </Paper>
+      
+      {/* Error Popup */}
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={8000} 
+        onClose={handleSnackbarClose}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        style={{ marginTop: '20px' }}
+      >
+        <Alert 
+          onClose={handleSnackbarClose} 
+          severity={snackbar.severity} 
+          variant="filled"
+          style={{ 
+            minWidth: '300px', 
+            fontSize: '1rem',
+            boxShadow: '0 4px 12px rgba(0,0,0,0.15)'
+          }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Container>
   );
 };

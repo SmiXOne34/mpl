@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { BrowserRouter as Router, Route, Switch } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Switch, Redirect } from 'react-router-dom';
 import { Provider } from 'react-redux';
 import { ThemeProvider, createTheme } from '@material-ui/core/styles';
 import CssBaseline from '@material-ui/core/CssBaseline';
@@ -44,10 +44,11 @@ import AdminDashboard from './components/admin/AdminDashboard';
 import MealForm from './components/admin/MealForm';
 import MenuForm from './components/admin/MenuForm';
 import UserManagement from './components/admin/UserManagement';
-import VotingSettings from './components/admin/VotingSettings';
+
 import Settings from './components/admin/Settings';
 import AIMealGeneratorPage from './components/admin/AIMealGeneratorPage';
 import AICameraGeneratorPage from './components/admin/AICameraGeneratorPage';
+import WeekManager from './components/admin/WeekManager';
 
 // Set auth token on initial app loading
 if (localStorage.token) {
@@ -146,7 +147,7 @@ const App = () => {
                 <PrivateRoute exact path="/dashboard" component={Dashboard} />
                 <PrivateRoute exact path="/profile" component={Profile} />
                 <PrivateRoute exact path="/meals/select" component={MealSelection} />
-                <PrivateRoute exact path="/meals/weekly" component={WeeklyMenu} />
+                {/* Weekly menu route removed */}
                 <PrivateRoute exact path="/meals/history" component={SelectionHistory} />
                 <PrivateRoute exact path="/meals/statistics" component={MealStatistics} />
                 <PrivateRoute exact path="/meals/:id" component={MealDetails} />
@@ -156,11 +157,15 @@ const App = () => {
                 <AdminRoute exact path="/admin/meals/new" component={MealForm} />
                 <AdminRoute exact path="/admin/meals/edit/:id" component={MealForm} />
                 <AdminRoute exact path="/admin/menu" component={MenuForm} />
+                <AdminRoute exact path="/admin/menu/new" component={MenuForm} />
+                <AdminRoute exact path="/admin/menu/edit/:weekId" component={MenuForm} />
                 <AdminRoute exact path="/admin/users" component={UserManagement} />
-                <AdminRoute exact path="/admin/voting" component={VotingSettings} />
                 <AdminRoute exact path="/admin/settings" component={Settings} />
                 <AdminRoute exact path="/admin/ai-meal-generator" component={AIMealGeneratorPage} />
                 <AdminRoute exact path="/admin/ai-camera-generator" component={AICameraGeneratorPage} />
+                <AdminRoute exact path="/admin/weekmanager" component={WeekManager} />
+                {/* Redirect from old path to new path */}
+                <AdminRoute exact path="/weekmanager" render={() => <Redirect to="/admin/weekmanager" />} />
 
                 {/* 404 Route */}
                 <Route component={NotFound} />

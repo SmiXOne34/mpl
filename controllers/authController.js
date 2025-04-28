@@ -66,20 +66,23 @@ exports.login = asyncHandler(async (req, res, next) => {
       return next(new ErrorResponse('Please provide an email and password', 400));
     }
 
-    // Check for user
-    const user = await User.findOne({ email }).select('+password');
-
-    if (!user) {
-      console.log('Login failed: User not found');
-      return next(new ErrorResponse('Invalid credentials', 401));
+    // First check if the user exists without fetching the password
+    const userExists = await User.findOne({ email });
+    
+    if (!userExists) {
+      console.log('Login failed: User not found in database');
+      return next(new ErrorResponse('User not found. Please check your email or register a new account.', 404));
     }
+    
+    // Now fetch the user with password for authentication
+    const user = await User.findOne({ email }).select('+password');
 
     // Check if password matches
     const isMatch = await user.matchPassword(password);
 
     if (!isMatch) {
       console.log('Login failed: Password does not match');
-      return next(new ErrorResponse('Invalid credentials', 401));
+      return next(new ErrorResponse('Invalid password. Please try again.', 401));
     }
 
     console.log('Login successful for user:', user._id);
@@ -170,23 +173,58 @@ exports.updatePassword = asyncHandler(async (req, res, next) => {
  * @access  Private
  */
 exports.uploadProfileImage = asyncHandler(async (req, res, next) => {
-  // In a real implementation, you would handle file upload here
-  // For now, we'll just update the imageUrl field with the URL provided in the request
-  
-  if (!req.body.imageUrl) {
-    return next(new ErrorResponse('Please provide an image URL', 400));
+  try {
+    console.log('Profile image upload request received');
+    
+    // Check if image URL is provided
+    if (!req.body.imageUrl) {
+      console.log('No image URL provided');
+      return next(new ErrorResponse('Please provide an image URL', 400));
+    }
+    
+    // Log the length of the image data for debugging
+    console.log('Image data length:', req.body.imageUrl.length);
+    
+    // Validate that the image URL is a base64 data URL
+    const isBase64DataUrl = req.body.imageUrl.startsWith('data:image/');
+    const isBlobUrl = req.body.imageUrl.startsWith('blob:');
+    
+    if (!isBase64DataUrl && !isBlobUrl) {
+      console.log('Invalid image format');
+      return next(new ErrorResponse('Invalid image format. Please provide a valid image.', 400));
+    }
+    
+    // Check if the image data is too large (limit to 5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB in bytes
+    if (req.body.imageUrl.length > maxSize) {
+      console.log('Image too large:', req.body.imageUrl.length, 'bytes');
+      return next(new ErrorResponse('Image is too large. Please upload an image smaller than 5MB.', 400));
+    }
+    
+    console.log('Updating user profile with image');
+    
+    // Update the user's imageUrl field
+    const user = await User.findByIdAndUpdate(
+      req.user.id, 
+      { imageUrl: req.body.imageUrl },
+      { new: true, runValidators: true }
+    );
+    
+    if (!user) {
+      console.log('User not found');
+      return next(new ErrorResponse('User not found', 404));
+    }
+    
+    console.log('Profile image updated successfully');
+    
+    res.status(200).json({
+      success: true,
+      data: user
+    });
+  } catch (error) {
+    console.error('Error in uploadProfileImage:', error);
+    return next(new ErrorResponse('Server error while uploading profile image', 500));
   }
-  
-  const user = await User.findByIdAndUpdate(
-    req.user.id, 
-    { imageUrl: req.body.imageUrl },
-    { new: true, runValidators: true }
-  );
-
-  res.status(200).json({
-    success: true,
-    data: user
-  });
 });
 
 /**
